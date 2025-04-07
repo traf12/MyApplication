@@ -4,12 +4,10 @@
 
     <!-- Разрешения на необходимые функции -->
     <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.DEVICE_POWER"
-        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.DEVICE_POWER" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS"
-        tools:ignore="PermissionImpliesUnsupportedChromeOsHardware" />
+    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" tools:ignore="PermissionImpliesUnsupportedChromeOsHardware" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -48,7 +46,7 @@
         <service
             android:name=".MyAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="false"> <!-- Добавлен android:exported -->
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
@@ -70,6 +68,18 @@
                 <category android:name="android.intent.category.HOME" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".AllAppsActivity"
+            android:exported="true"
+            android:label="Все приложения"
+            android:theme="@style/Theme.MyApplication" />
+
+        <!-- Активность для меню -->
+        <activity
+            android:name=".MenuActivity"
+            android:exported="true"
+            android:label="Меню"
+            android:theme="@style/Theme.MyApplication" />
 
     </application>
 

@@ -58,33 +58,4 @@
         android:layout_alignParentEnd="true"
         android:layout_margin="16dp"/>
 
-    <!-- Кнопка для активации прав администратора -->
-    <Button
-        android:id="@+id/activateButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Активировать"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="20dp"/>
-
-    <!-- Кнопка для завершения вызова -->
-    <Button
-        android:id="@+id/endCallButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Завершить звонок"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="20dp"
-        android:layout_below="@id/activateButton"/>
-
-    <!-- Кнопка для блокировки экрана -->
-    <Button
-        android:id="@+id/lockButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Заблокировать экран"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="20dp"
-        android:layout_below="@id/endCallButton"/>
-
 </RelativeLayout>

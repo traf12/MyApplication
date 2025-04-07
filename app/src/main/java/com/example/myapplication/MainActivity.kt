@@ -4,11 +4,11 @@ import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.*
 import android.os.*
-import android.util.Log
 import android.view.KeyEvent
 import android.view.View
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import java.text.SimpleDateFormat
@@ -23,66 +23,54 @@ class MainActivity : Activity() {
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var componentName: ComponentName
 
-    private lateinit var powerManager: PowerManager
-    private lateinit var wakeLock: PowerManager.WakeLock
-
     private val REQUEST_CODE_DEVICE_ADMIN = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Инициализация кнопок и представлений
-        val lockButton: Button = findViewById(R.id.lockButton)
+        hideSystemUI()
+
         timeView = findViewById(R.id.timeView)
         dateView = findViewById(R.id.dateView)
         batteryView = findViewById(R.id.batteryView)
-        val endCallButton: Button = findViewById(R.id.endCallButton)
 
-        // Инициализация PowerManager для блокировки экрана
-        powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK, "MyApp::ScreenLock")
-
-        // Инициализация DevicePolicyManager для блокировки экрана через администратора устройства
         devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         componentName = ComponentName(this, MyDeviceAdminReceiver::class.java)
 
-        // Проверяем, активирован ли администратор устройства
         if (!devicePolicyManager.isAdminActive(componentName)) {
-            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
-            intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
-            intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Приложение требует права администратора для блокировки экрана.")
+            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
+                putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Приложение требует права администратора для блокировки экрана.")
+            }
             startActivityForResult(intent, REQUEST_CODE_DEVICE_ADMIN)
         }
 
-        // Обработчик кнопки для блокировки экрана
-        lockButton.setOnClickListener {
-            lockScreenUsingDevicePolicy()
-        }
-
-        // Обработчик кнопки завершения вызова
-        endCallButton.setOnClickListener {
-            lockScreenUsingDevicePolicy()
-        }
-
-        // Обновление времени
         updateTime()
         updateBatteryLevel()
     }
 
-    // Скрытие системных панелей после получения фокуса
+    private fun hideSystemUI() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
+            window.insetsController?.apply {
+                hide(WindowInsets.Type.systemBars())
+                systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            or View.SYSTEM_UI_FLAG_FULLSCREEN
+                            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    )
+        }
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val windowInsetsController = window.insetsController
-                windowInsetsController?.hide(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
-                windowInsetsController?.systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            } else {
-                @Suppress("DEPRECATION")
-                window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
-                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            }
+            hideSystemUI()
         }
     }
 
@@ -93,15 +81,8 @@ class MainActivity : Activity() {
             } catch (e: SecurityException) {
                 Toast.makeText(this, "Ошибка при попытке заблокировать экран", Toast.LENGTH_SHORT).show()
             }
-        } else {
-            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
-            intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
-            intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Для блокировки экрана требуется доступ администратора.")
-            startActivityForResult(intent, REQUEST_CODE_DEVICE_ADMIN)
         }
     }
-
-
 
     private fun updateTime() {
         val timer = Timer()
@@ -133,29 +114,56 @@ class MainActivity : Activity() {
         if (requestCode == REQUEST_CODE_DEVICE_ADMIN) {
             if (resultCode == Activity.RESULT_OK) {
                 Toast.makeText(this, "Права администратора получены!", Toast.LENGTH_SHORT).show()
-                // Теперь можно использовать функцию блокировки экрана
             } else {
                 Toast.makeText(this, "Не удалось получить права администратора", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            lockScreenUsingDevicePolicy()  // Блокировка экрана через DevicePolicyManager
-            return true
-        }
-        return super.onKeyDown(keyCode, event)
-    }
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            lockScreenUsingDevicePolicy()  // Блокировка экрана через DevicePolicyManager
-            return true
+        when (keyCode) {
+            KeyEvent.KEYCODE_BACK -> {
+                lockScreenUsingDevicePolicy()
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER -> {
+                // Центр D-Pad — здесь можно добавить действие выбора
+                Toast.makeText(this, "Выбрано", Toast.LENGTH_SHORT).show()
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_UP,
+            KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_DPAD_LEFT,
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                // Навигация — пока просто выводим направление
+                val direction = when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_UP -> "Вверх"
+                    KeyEvent.KEYCODE_DPAD_DOWN -> "Вниз"
+                    KeyEvent.KEYCODE_DPAD_LEFT -> "Влево"
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> "Вправо"
+                    else -> ""
+                }
+                Toast.makeText(this, direction, Toast.LENGTH_SHORT).show()
+                return true
+            }
+
+            KeyEvent.KEYCODE_MENU -> {
+                // Меню — переход в меню
+                val intent = Intent(this, MenuActivity::class.java)
+                startActivity(intent)
+                return true
+            }
+
+            KeyEvent.KEYCODE_SOFT_RIGHT -> {
+                // Правая клавиша — например, открыть контакты
+                Toast.makeText(this, "Открыть контакты", Toast.LENGTH_SHORT).show()
+                return true
+            }
+
+            else -> return super.onKeyDown(keyCode, event)
         }
-        return super.onKeyDown(keyCode, event)
     }
-
-
-
-
 }
