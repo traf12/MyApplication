@@ -20,6 +20,7 @@ private val handler = Handler(Looper.getMainLooper())
 private var isKey7Handled = false
 private var key7DownTime: Long = 0
 private val LONG_PRESS_THRESHOLD = 1000L // миллисекунд (1 секунда)
+private lateinit var screenOffReceiver: BroadcastReceiver
 
 class MainActivity : Activity() {
 
@@ -31,6 +32,7 @@ class MainActivity : Activity() {
 
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var componentName: ComponentName
+    private var screenOffReceiver: BroadcastReceiver? = null
 
     private val REQUEST_CODE_DEVICE_ADMIN = 1
 
@@ -47,6 +49,18 @@ class MainActivity : Activity() {
 
         setContentView(R.layout.activity_main)
         hideSystemUI()
+
+// Регистрируем BroadcastReceiver на выключение экрана
+        screenOffReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                    val lockIntent = Intent(this@MainActivity, LockScreenActivity::class.java)
+                    lockIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    startActivity(lockIntent)
+                }
+            }
+        }
+        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
 
         timeView = findViewById(R.id.timeView)
         dateView = findViewById(R.id.dateView)
@@ -119,17 +133,17 @@ class MainActivity : Activity() {
 
             val batteryIconRes = when {
                 isCharging -> R.drawable.battery12
-                batteryPct >= 95 -> R.drawable.battery11
-                batteryPct >= 90 -> R.drawable.battery10
-                batteryPct >= 80 -> R.drawable.battery9
-                batteryPct >= 70 -> R.drawable.battery8
-                batteryPct >= 60 -> R.drawable.battery7
-                batteryPct >= 50 -> R.drawable.battery6
-                batteryPct >= 40 -> R.drawable.battery5
-                batteryPct >= 30 -> R.drawable.battery4
-                batteryPct >= 20 -> R.drawable.battery3
-                batteryPct >= 10 -> R.drawable.battery2
-                batteryPct > 5 -> R.drawable.battery1
+                batteryPct >= 95 -> R.drawable.battery10
+                batteryPct >= 90 -> R.drawable.battery9
+                batteryPct >= 80 -> R.drawable.battery8
+                batteryPct >= 70 -> R.drawable.battery7
+                batteryPct >= 60 -> R.drawable.battery6
+                batteryPct >= 50 -> R.drawable.battery5
+                batteryPct >= 40 -> R.drawable.battery4
+                batteryPct >= 30 -> R.drawable.battery3
+                batteryPct >= 20 -> R.drawable.battery2
+                batteryPct >= 10 -> R.drawable.battery1
+                batteryPct > 5 -> R.drawable.battery0
                 else -> R.drawable.battery0
             }
             batteryIcon.setImageResource(batteryIconRes)
@@ -183,8 +197,11 @@ class MainActivity : Activity() {
             }
 
             KeyEvent.KEYCODE_MENU -> {
-                startActivity(Intent(this, MenuActivity::class.java)); true
+                startActivity(Intent(this, MenuActivity::class.java))
+                overridePendingTransition(0, 0)
+                true
             }
+
 
             else -> super.onKeyDown(keyCode, event)
         }
@@ -222,4 +239,14 @@ class MainActivity : Activity() {
             }
         }
     }
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(screenOffReceiver)
+        } catch (e: Exception) {
+            // безопасно игнорируем, если не был зарегистрирован
+        }
+    }
+
+
 }

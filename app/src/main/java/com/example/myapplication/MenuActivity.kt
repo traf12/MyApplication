@@ -4,38 +4,36 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.*
 import android.content.pm.PackageManager
-import android.os.BatteryManager
-import android.os.Bundle
-import android.os.Handler
+import android.os.*
 import android.view.KeyEvent
 import android.view.View
-import android.view.WindowManager
 import android.widget.GridLayout
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
+import android.view.accessibility.AccessibilityEvent
 
 class MenuActivity : Activity() {
 
     private lateinit var gridLayout: GridLayout
     private lateinit var buttons: Array<ImageButton>
     private lateinit var headerTextView: TextView
-    private var backPressedTime = 0L
-    private val BACK_HOLD_THRESHOLD = 1500L
+
+    private val handler = Handler(Looper.getMainLooper())
+
+    private var isBackHandled = false
+    private var isCenterHandled = false
+    private var wasBackLongPress = false
+    private var wasCenterLongPress = false
+
+    private val HOLD_THRESHOLD = 1500L
 
     private val buttonAppMap = mutableMapOf<Int, String?>()
     private var selectedIndex = 0
-    private val handler = Handler()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_menu)
-
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        )
-
         hideSystemUI()
 
         headerTextView = findViewById(R.id.headerTextView)
@@ -53,22 +51,126 @@ class MenuActivity : Activity() {
             findViewById(R.id.appButton9)
         )
 
-        loadAppMappings()
-
         buttons.forEachIndexed { index, button ->
+            button.isFocusable = true
+            button.isFocusableInTouchMode = true
             button.setOnClickListener {
                 buttonAppMap[index]?.let { pkg -> launchApp(pkg) }
             }
         }
+
+        loadAppMappings()
     }
 
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            handler.postDelayed({
-                updateSelection(4) // установить фокус на центральную кнопку
-            }, 50)
+    override fun onResume() {
+        super.onResume()
+        handler.postDelayed({
+            updateSelection(4)
+            buttons[4].sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED)
+        }, 100)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        when (keyCode) {
+            KeyEvent.KEYCODE_BACK -> {
+                if (!isBackHandled) {
+                    isBackHandled = true
+                    handler.postDelayed({
+                        if (buttonAppMap[selectedIndex] != null) {
+                            handleLongPress(selectedIndex)
+                            wasBackLongPress = true
+                        }
+                        isBackHandled = false
+                    }, HOLD_THRESHOLD)
+                }
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_CENTER -> {
+                if (!isCenterHandled) {
+                    isCenterHandled = true
+                    handler.postDelayed({
+                        showAppSelectionDialog(selectedIndex)
+                        wasCenterLongPress = true
+                        isCenterHandled = false
+                    }, HOLD_THRESHOLD)
+                }
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_UP -> {
+                val newIndex = if (selectedIndex >= 3) selectedIndex - 3 else selectedIndex + 6
+                updateSelection(newIndex)
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                val newIndex = if (selectedIndex <= 5) selectedIndex + 3 else selectedIndex - 6
+                updateSelection(newIndex)
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                val newIndex = if (selectedIndex % 3 != 0) selectedIndex - 1 else selectedIndex + 2
+                updateSelection(newIndex)
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                val newIndex = if (selectedIndex % 3 != 2) selectedIndex + 1 else selectedIndex - 2
+                updateSelection(newIndex)
+                return true
+            }
         }
+
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        when (keyCode) {
+            KeyEvent.KEYCODE_BACK -> {
+                handler.removeCallbacksAndMessages(null)
+                if (!wasBackLongPress) {
+                    val intent = Intent(this, MainActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    startActivity(intent)
+                    overridePendingTransition(0, 0)
+                    finish()
+                }
+                wasBackLongPress = false
+                isBackHandled = false
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_CENTER -> {
+                handler.removeCallbacksAndMessages(null)
+                if (!wasCenterLongPress) {
+                    buttonAppMap[selectedIndex]?.let { launchApp(it) }
+                }
+                wasCenterLongPress = false
+                isCenterHandled = false
+                return true
+            }
+        }
+
+        return super.onKeyUp(keyCode, event)
+    }
+
+    private fun updateSelection(index: Int) {
+        buttons[selectedIndex].background = getDrawable(R.drawable.button_selector)
+        selectedIndex = index
+        buttons[selectedIndex].background = getDrawable(R.drawable.button_selector)
+
+        val label = buttonAppMap[index]?.let {
+            try {
+                packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString()
+            } catch (e: Exception) {
+                ""
+            }
+        } ?: ""
+
+        headerTextView.text = label
+        buttons[selectedIndex].requestFocus()
     }
 
     private fun launchApp(packageName: String) {
@@ -106,38 +208,19 @@ class MenuActivity : Activity() {
     }
 
     private fun handleLongPress(index: Int) {
-        if (buttonAppMap[index] != null) {
-            AlertDialog.Builder(this)
-                .setTitle("Удалить ярлык?")
-                .setMessage("Удалить назначенное приложение?")
-                .setPositiveButton("Удалить") { _, _ ->
-                    buttonAppMap[index] = null
-                    buttons[index].setImageDrawable(null)
-                    saveAppMappings()
-                    if (selectedIndex == index) {
-                        headerTextView.text = ""
-                    }
+        AlertDialog.Builder(this)
+            .setTitle("Удалить ярлык?")
+            .setMessage("Удалить назначенное приложение?")
+            .setPositiveButton("Удалить") { _, _ ->
+                buttonAppMap[index] = null
+                buttons[index].setImageDrawable(null)
+                saveAppMappings()
+                if (selectedIndex == index) {
+                    headerTextView.text = ""
                 }
-                .setNegativeButton("Отмена", null)
-                .show()
-        } else {
-            showAppSelectionDialog(index)
-        }
-    }
-
-    private fun updateSelection(index: Int) {
-        buttons[selectedIndex].setBackgroundResource(R.drawable.default_button_background)
-        selectedIndex = index
-        buttons[selectedIndex].setBackgroundResource(R.drawable.button_selected_background)
-
-        val label = buttonAppMap[index]?.let {
-            try {
-                packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString()
-            } catch (e: Exception) { "" }
-        } ?: ""
-
-        headerTextView.text = label
-        buttons[selectedIndex].requestFocus()
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun saveAppMappings() {
@@ -170,53 +253,6 @@ class MenuActivity : Activity() {
                 buttons[i].setImageDrawable(null)
             }
         }
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            backPressedTime = System.currentTimeMillis()
-            return true
-        }
-
-        when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                val newIndex = if (selectedIndex >= 3) selectedIndex - 3 else selectedIndex + 6
-                updateSelection(newIndex)
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_DOWN -> {
-                val newIndex = if (selectedIndex <= 5) selectedIndex + 3 else selectedIndex - 6
-                updateSelection(newIndex)
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_LEFT -> {
-                val newIndex = if (selectedIndex % 3 != 0) selectedIndex - 1 else selectedIndex + 2
-                updateSelection(newIndex)
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                val newIndex = if (selectedIndex % 3 != 2) selectedIndex + 1 else selectedIndex - 2
-                updateSelection(newIndex)
-                return true
-            }
-        }
-        return super.onKeyDown(keyCode, event)
-    }
-
-    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            val heldTime = System.currentTimeMillis() - backPressedTime
-            if (heldTime >= BACK_HOLD_THRESHOLD && buttonAppMap[selectedIndex] != null) {
-                handleLongPress(selectedIndex)
-            } else {
-                val intent = Intent(this, MainActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                startActivity(intent)
-                overridePendingTransition(0, 0)
-            }
-            return true
-        }
-        return super.onKeyUp(keyCode, event)
     }
 
     private fun hideSystemUI() {
