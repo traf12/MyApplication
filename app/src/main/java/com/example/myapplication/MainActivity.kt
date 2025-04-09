@@ -26,7 +26,6 @@ class MainActivity : Activity() {
 
     private lateinit var timeView: TextView
     private lateinit var dateView: TextView
-    private lateinit var batteryView: TextView
     private lateinit var batteryIcon: ImageView
     private lateinit var networkIcon: ImageView
 
@@ -64,7 +63,6 @@ class MainActivity : Activity() {
 
         timeView = findViewById(R.id.timeView)
         dateView = findViewById(R.id.dateView)
-        batteryView = findViewById(R.id.batteryView)
         batteryIcon = findViewById(R.id.batteryIcon)
         networkIcon = findViewById(R.id.networkIcon)
 
@@ -129,7 +127,6 @@ class MainActivity : Activity() {
             val isCharging = it.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) != 0
             val batteryPct = (level / scale.toFloat() * 100).toInt()
 
-            batteryView.text = "$batteryPct%"
 
             val batteryIconRes = when {
                 isCharging -> R.drawable.battery12

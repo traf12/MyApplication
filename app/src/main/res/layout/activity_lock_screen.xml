@@ -4,8 +4,33 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000"
-    android:gravity="center">
+    android:padding="16dp">
 
+    <!-- Иконка сети — в левом верхнем углу -->
+    <ImageView
+        android:id="@+id/networkIcon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        android:src="@drawable/signal1"
+        android:contentDescription="Network Icon" />
+
+    <!-- Иконка батареи — в правом верхнем углу -->
+    <ImageView
+        android:id="@+id/batteryIcon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="8dp"
+        android:src="@drawable/battery0"
+        android:contentDescription="Battery Icon" />
+
+    <!-- Основной текст в центре -->
     <TextView
         android:id="@+id/statusText"
         android:layout_width="wrap_content"
@@ -14,4 +39,29 @@
         android:textSize="24sp"
         android:textColor="#FFFFFF"
         android:layout_centerInParent="true" />
+
+    <!-- Название трека -->
+    <TextView
+        android:id="@+id/trackTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Название трека"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:layout_below="@id/statusText"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="24dp" />
+
+    <!-- Исполнитель -->
+    <TextView
+        android:id="@+id/trackArtist"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Исполнитель"
+        android:textColor="@android:color/darker_gray"
+        android:textSize="14sp"
+        android:layout_below="@id/trackTitle"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="8dp" />
+
 </RelativeLayout>
