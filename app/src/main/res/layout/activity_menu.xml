@@ -1,103 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
-<GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/gridLayout"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/menuLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:alignmentMode="alignMargins"
-    android:columnCount="3"
-    android:rowCount="3"
-    android:padding="16dp"
     android:background="@android:color/black"
-    android:useDefaultMargins="true">
+    android:orientation="vertical"
+    android:gravity="center_horizontal">
 
-    <Button
-        android:id="@+id/appButton1"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_rowWeight="1"
-        android:layout_columnWeight="1"
-        android:text="App 1"
+    <TextView
+        android:id="@+id/headerTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="Журнал вызовов"
         android:textColor="@android:color/white"
-        android:background="@android:color/darker_gray"/>
+        android:textSize="24sp"
+        android:padding="16dp" />
 
-    <Button
-        android:id="@+id/appButton2"
-        android:layout_width="0dp"
+    <GridLayout
+        android:id="@+id/gridLayout"
+        android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_rowWeight="1"
-        android:layout_columnWeight="1"
-        android:text="App 2"
-        android:textColor="@android:color/white"
-        android:background="@android:color/darker_gray"/>
+        android:layout_weight="1"
+        android:columnCount="3"
+        android:rowCount="3"
+        android:padding="4dp">
 
-    <Button
-        android:id="@+id/appButton3"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_rowWeight="1"
-        android:layout_columnWeight="1"
-        android:text="App 3"
-        android:textColor="@android:color/white"
-        android:background="@android:color/darker_gray"/>
+        <!-- 9 одинаковых квадратных кнопок -->
+        <ImageButton
+            android:id="@+id/appButton1"
+            style="@style/LargeNokiaMenuButton"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_columnWeight="1"
+            android:layout_rowWeight="1"
+            android:layout_margin="2dp"
+            android:scaleType="fitCenter"
+            android:background="@drawable/default_button_background"
+            android:src="@drawable/ic_phone" />
 
-    <Button
-        android:id="@+id/appButton4"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_rowWeight="1"
-        android:layout_columnWeight="1"
-        android:text="App 4"
-        android:textColor="@android:color/white"
-        android:background="@android:color/darker_gray"/>
-
-    <Button
-        android:id="@+id/appButton5"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_rowWeight="1"
-        android:layout_columnWeight="1"
-        android:text="App 5"
-        android:textColor="@android:color/white"
-        android:background="@android:color/darker_gray"/>
-
-    <Button
-        android:id="@+id/appButton6"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_rowWeight="1"
-        android:layout_columnWeight="1"
-        android:text="App 6"
-        android:textColor="@android:color/white"
-        android:background="@android:color/darker_gray"/>
-
-    <Button
-        android:id="@+id/appButton7"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_rowWeight="1"
-        android:layout_columnWeight="1"
-        android:text="App 7"
-        android:textColor="@android:color/white"
-        android:background="@android:color/darker_gray"/>
-
-    <Button
-        android:id="@+id/appButton8"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_rowWeight="1"
-        android:layout_columnWeight="1"
-        android:text="App 8"
-        android:textColor="@android:color/white"
-        android:background="@android:color/darker_gray"/>
-
-    <Button
-        android:id="@+id/appButton9"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_rowWeight="1"
-        android:layout_columnWeight="1"
-        android:text="App 9"
-        android:textColor="@android:color/white"
-        android:background="@android:color/darker_gray"/>
-
-</GridLayout>
+        <!-- Повторить для всех остальных -->
+        <ImageButton android:id="@+id/appButton2" style="@style/LargeNokiaMenuButton" android:layout_width="0dp" android:layout_height="0dp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_margin="2dp" android:scaleType="fitCenter" android:background="@drawable/default_button_background" android:src="@drawable/ic_message" />
+        <ImageButton android:id="@+id/appButton3" style="@style/LargeNokiaMenuButton" android:layout_width="0dp" android:layout_height="0dp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_margin="2dp" android:scaleType="fitCenter" android:background="@drawable/default_button_background" android:src="@drawable/ic_contacts" />
+        <ImageButton android:id="@+id/appButton4" style="@style/LargeNokiaMenuButton" android:layout_width="0dp" android:layout_height="0dp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_margin="2dp" android:scaleType="fitCenter" android:background="@drawable/default_button_background" android:src="@drawable/ic_browser" />
+        <ImageButton android:id="@+id/appButton5" style="@style/LargeNokiaMenuButton" android:layout_width="0dp" android:layout_height="0dp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_margin="2dp" android:scaleType="fitCenter" android:background="@drawable/default_button_background" android:src="@drawable/ic_camera" />
+        <ImageButton android:id="@+id/appButton6" style="@style/LargeNokiaMenuButton" android:layout_width="0dp" android:layout_height="0dp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_margin="2dp" android:scaleType="fitCenter" android:background="@drawable/default_button_background" android:src="@drawable/ic_gallery" />
+        <ImageButton android:id="@+id/appButton7" style="@style/LargeNokiaMenuButton" android:layout_width="0dp" android:layout_height="0dp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_margin="2dp" android:scaleType="fitCenter" android:background="@drawable/default_button_background" android:src="@drawable/ic_maps" />
+        <ImageButton android:id="@+id/appButton8" style="@style/LargeNokiaMenuButton" android:layout_width="0dp" android:layout_height="0dp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_margin="2dp" android:scaleType="fitCenter" android:background="@drawable/default_button_background" android:src="@drawable/ic_email" />
+        <ImageButton android:id="@+id/appButton9" style="@style/LargeNokiaMenuButton" android:layout_width="0dp" android:layout_height="0dp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_margin="2dp" android:scaleType="fitCenter" android:background="@drawable/default_button_background" android:src="@drawable/ic_music" />
+    </GridLayout>
+</LinearLayout>

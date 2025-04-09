@@ -2,194 +2,228 @@ package com.example.myapplication
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.Intent
+import android.content.*
 import android.content.pm.PackageManager
-import android.graphics.drawable.Drawable
+import android.os.BatteryManager
 import android.os.Bundle
+import android.os.Handler
 import android.view.KeyEvent
 import android.view.View
-import android.widget.Button
+import android.view.WindowManager
 import android.widget.GridLayout
+import android.widget.ImageButton
+import android.widget.TextView
 import android.widget.Toast
 
 class MenuActivity : Activity() {
 
     private lateinit var gridLayout: GridLayout
-    private var selectedButtonIndex = 4  // Центральная кнопка (appButton5)
-    private lateinit var buttons: Array<Button>
-    private lateinit var installedApps: List<String>
-    private lateinit var appIcons: Array<Drawable?>
-    private val buttonAppMap = mutableMapOf<Int, String?>() // Для хранения привязанных приложений
+    private lateinit var buttons: Array<ImageButton>
+    private lateinit var headerTextView: TextView
+    private var backPressedTime = 0L
+    private val BACK_HOLD_THRESHOLD = 1500L
+
+    private val buttonAppMap = mutableMapOf<Int, String?>()
+    private var selectedIndex = 0
+    private val handler = Handler()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_menu)
 
-        hideSystemUI()  // Скрытие системной шторки
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        )
 
+        hideSystemUI()
+
+        headerTextView = findViewById(R.id.headerTextView)
         gridLayout = findViewById(R.id.gridLayout)
 
         buttons = arrayOf(
-            findViewById<Button>(R.id.appButton1),
-            findViewById<Button>(R.id.appButton2),
-            findViewById<Button>(R.id.appButton3),
-            findViewById<Button>(R.id.appButton4),
-            findViewById<Button>(R.id.appButton5),  // Центральная кнопка
-            findViewById<Button>(R.id.appButton6),
-            findViewById<Button>(R.id.appButton7),
-            findViewById<Button>(R.id.appButton8),
-            findViewById<Button>(R.id.appButton9)
+            findViewById(R.id.appButton1),
+            findViewById(R.id.appButton2),
+            findViewById(R.id.appButton3),
+            findViewById(R.id.appButton4),
+            findViewById(R.id.appButton5),
+            findViewById(R.id.appButton6),
+            findViewById(R.id.appButton7),
+            findViewById(R.id.appButton8),
+            findViewById(R.id.appButton9)
         )
 
-        installedApps = getInstalledApps()
-
-        // Загружаем иконки приложений
-        appIcons = Array(9) { null }
-        installedApps.forEachIndexed { index, packageName ->
-            if (index < 9) {
-                appIcons[index] = packageManager.getApplicationIcon(packageName)
-                buttons[index].setCompoundDrawablesWithIntrinsicBounds(null, appIcons[index], null, null)
-            }
-        }
+        loadAppMappings()
 
         buttons.forEachIndexed { index, button ->
             button.setOnClickListener {
-                val appPackage = buttonAppMap[index]
-                if (appPackage != null) {
-                    launchApp(appPackage)
-                }
-            }
-
-            button.setOnLongClickListener {
-                showAppSelectionDialog(index) // Показать диалог для выбора приложения
-                true
+                buttonAppMap[index]?.let { pkg -> launchApp(pkg) }
             }
         }
-
-        // Устанавливаем центральную кнопку как выбранную изначально
-        updateSelectedButton(selectedButtonIndex)
     }
 
-    private fun getInstalledApps(): List<String> {
-        val packageManager: PackageManager = packageManager
-        val apps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-        return apps.map { it.packageName }
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            handler.postDelayed({
+                updateSelection(4) // установить фокус на центральную кнопку
+            }, 50)
+        }
     }
 
     private fun launchApp(packageName: String) {
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
             startActivity(intent)
+            overridePendingTransition(0, 0)
         } else {
-            Toast.makeText(this, "Приложение не найдено", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Не удалось открыть приложение", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun showAppSelectionDialog(index: Int) {
-        // Показываем диалог для выбора приложения
-        val packageManager = packageManager
-        val apps = getInstalledApps()
-        val appNames = apps.map { packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString() }
+        val apps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+        val appPackages = apps.map { it.packageName }
+        val appNames = apps.map {
+            packageManager.getApplicationLabel(it).toString()
+        }
 
-        val dialog = AlertDialog.Builder(this)
+        AlertDialog.Builder(this)
             .setTitle("Выберите приложение")
             .setItems(appNames.toTypedArray()) { _, which ->
-                // Привязываем выбранное приложение к кнопке
-                val selectedAppPackage = apps[which]
-                buttonAppMap[index] = selectedAppPackage
-                Toast.makeText(this, "Приложение $selectedAppPackage добавлено", Toast.LENGTH_SHORT).show()
-
-                // Обновляем иконку и название кнопки
-                val appIcon = packageManager.getApplicationIcon(selectedAppPackage)
-                val appLabel = packageManager.getApplicationLabel(packageManager.getApplicationInfo(selectedAppPackage, 0)).toString()
-                buttons[index].setText(appLabel)
-                buttons[index].setCompoundDrawablesWithIntrinsicBounds(null, appIcon, null, null)
+                val selectedPackage = appPackages[which]
+                buttonAppMap[index] = selectedPackage
+                saveAppMappings()
+                try {
+                    val icon = packageManager.getApplicationIcon(selectedPackage)
+                    buttons[index].setImageDrawable(icon)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Ошибка загрузки иконки", Toast.LENGTH_SHORT).show()
+                }
+                updateSelection(index)
             }
-            .create()
+            .show()
+    }
 
-        dialog.show()
+    private fun handleLongPress(index: Int) {
+        if (buttonAppMap[index] != null) {
+            AlertDialog.Builder(this)
+                .setTitle("Удалить ярлык?")
+                .setMessage("Удалить назначенное приложение?")
+                .setPositiveButton("Удалить") { _, _ ->
+                    buttonAppMap[index] = null
+                    buttons[index].setImageDrawable(null)
+                    saveAppMappings()
+                    if (selectedIndex == index) {
+                        headerTextView.text = ""
+                    }
+                }
+                .setNegativeButton("Отмена", null)
+                .show()
+        } else {
+            showAppSelectionDialog(index)
+        }
+    }
+
+    private fun updateSelection(index: Int) {
+        buttons[selectedIndex].setBackgroundResource(R.drawable.default_button_background)
+        selectedIndex = index
+        buttons[selectedIndex].setBackgroundResource(R.drawable.button_selected_background)
+
+        val label = buttonAppMap[index]?.let {
+            try {
+                packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString()
+            } catch (e: Exception) { "" }
+        } ?: ""
+
+        headerTextView.text = label
+        buttons[selectedIndex].requestFocus()
+    }
+
+    private fun saveAppMappings() {
+        val prefs = getSharedPreferences("app_mappings", Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+        buttonAppMap.forEach { (index, pkg) ->
+            if (pkg != null) {
+                editor.putString("button_$index", pkg)
+            } else {
+                editor.remove("button_$index")
+            }
+        }
+        editor.apply()
+    }
+
+    private fun loadAppMappings() {
+        val prefs = getSharedPreferences("app_mappings", Context.MODE_PRIVATE)
+        for (i in buttons.indices) {
+            val pkg = prefs.getString("button_$i", null)
+            buttonAppMap[i] = pkg
+            if (pkg != null) {
+                try {
+                    val icon = packageManager.getApplicationIcon(pkg)
+                    buttons[i].setImageDrawable(icon)
+                } catch (e: Exception) {
+                    buttonAppMap[i] = null
+                    buttons[i].setImageDrawable(null)
+                }
+            } else {
+                buttons[i].setImageDrawable(null)
+            }
+        }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            backPressedTime = System.currentTimeMillis()
+            return true
+        }
+
+        when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> {
+                val newIndex = if (selectedIndex >= 3) selectedIndex - 3 else selectedIndex + 6
+                updateSelection(newIndex)
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                val newIndex = if (selectedIndex <= 5) selectedIndex + 3 else selectedIndex - 6
+                updateSelection(newIndex)
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                val newIndex = if (selectedIndex % 3 != 0) selectedIndex - 1 else selectedIndex + 2
+                updateSelection(newIndex)
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                val newIndex = if (selectedIndex % 3 != 2) selectedIndex + 1 else selectedIndex - 2
+                updateSelection(newIndex)
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            val heldTime = System.currentTimeMillis() - backPressedTime
+            if (heldTime >= BACK_HOLD_THRESHOLD && buttonAppMap[selectedIndex] != null) {
+                handleLongPress(selectedIndex)
+            } else {
+                val intent = Intent(this, MainActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                overridePendingTransition(0, 0)
+            }
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
     }
 
     private fun hideSystemUI() {
         window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                         or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 )
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_CENTER -> {
-                // Открыть приложение при удержании кнопки
-                buttons[selectedButtonIndex].performClick()
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                val newIndex = if (selectedButtonIndex > 2) selectedButtonIndex - 3 else selectedButtonIndex + 6
-                updateSelectedButton(newIndex)
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_DOWN -> {
-                val newIndex = if (selectedButtonIndex < 6) selectedButtonIndex + 3 else selectedButtonIndex - 6
-                updateSelectedButton(newIndex)
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_LEFT -> {
-                val newIndex = if (selectedButtonIndex % 3 != 0) selectedButtonIndex - 1 else selectedButtonIndex + 2
-                updateSelectedButton(newIndex)
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                val newIndex = if (selectedButtonIndex % 3 != 2) selectedButtonIndex + 1 else selectedButtonIndex - 2
-                updateSelectedButton(newIndex)
-                return true
-            }
-
-            KeyEvent.KEYCODE_SOFT_LEFT -> {
-                finish()
-                return true
-            }
-
-            // Удержание кнопки 7 для открытия списка приложений
-            KeyEvent.KEYCODE_7 -> {
-                openAllApps()
-                return true
-            }
-
-            else -> return super.onKeyDown(keyCode, event)
-        }
-    }
-
-    private fun updateSelectedButton(newIndex: Int) {
-        // Снимаем выделение с предыдущей кнопки
-        buttons[selectedButtonIndex].isSelected = false
-        buttons[selectedButtonIndex].setBackgroundResource(0) // Убираем эффект выделения
-
-        // Обновляем индекс
-        selectedButtonIndex = newIndex
-
-        // Устанавливаем выделение на новую кнопку
-        buttons[selectedButtonIndex].isSelected = true
-        buttons[selectedButtonIndex].setBackgroundResource(android.R.drawable.btn_default) // Можно использовать любой другой стиль
-
-        // Устанавливаем фокус
-        buttons[selectedButtonIndex].requestFocus()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // Убедитесь, что при возвращении на экран центральная кнопка выделена
-        updateSelectedButton(4) // Центральная кнопка (appButton5)
-    }
-
-    private fun openAllApps() {
-        // Открыть список установленных приложений
-        val intent = Intent(this, AllAppsActivity::class.java)
-        startActivity(intent)
     }
 }

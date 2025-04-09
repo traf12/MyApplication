@@ -1,24 +1,33 @@
 package com.example.myapplication
 
+
 import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.*
 import android.os.*
+import android.telephony.TelephonyManager
 import android.view.KeyEvent
 import android.view.View
-import android.view.WindowInsets
-import android.view.WindowInsetsController
-import android.view.WindowManager
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.*
+import android.view.WindowInsets
+import android.view.WindowInsetsController
+
+private val handler = Handler(Looper.getMainLooper())
+private var isKey7Handled = false
+private var key7DownTime: Long = 0
+private val LONG_PRESS_THRESHOLD = 1000L // миллисекунд (1 секунда)
 
 class MainActivity : Activity() {
 
     private lateinit var timeView: TextView
     private lateinit var dateView: TextView
     private lateinit var batteryView: TextView
+    private lateinit var batteryIcon: ImageView
+    private lateinit var networkIcon: ImageView
 
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var componentName: ComponentName
@@ -27,13 +36,23 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
+        // Проверка, если пользователь уже разблокировал экран
+        if (!intent.getBooleanExtra("unlocked", false)) {
+            val intent = Intent(this, LockScreenActivity::class.java)
+            startActivity(intent)
+            finish()
+            return
+        }
+
+        setContentView(R.layout.activity_main)
         hideSystemUI()
 
         timeView = findViewById(R.id.timeView)
         dateView = findViewById(R.id.dateView)
         batteryView = findViewById(R.id.batteryView)
+        batteryIcon = findViewById(R.id.batteryIcon)
+        networkIcon = findViewById(R.id.networkIcon)
 
         devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         componentName = ComponentName(this, MyDeviceAdminReceiver::class.java)
@@ -47,7 +66,13 @@ class MainActivity : Activity() {
         }
 
         updateTime()
-        updateBatteryLevel()
+        updateBatteryAndNetwork()
+
+        Timer().scheduleAtFixedRate(object : TimerTask() {
+            override fun run() {
+                runOnUiThread { updateBatteryAndNetwork() }
+            }
+        }, 0, 10000)
     }
 
     private fun hideSystemUI() {
@@ -67,23 +92,6 @@ class MainActivity : Activity() {
         }
     }
 
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            hideSystemUI()
-        }
-    }
-
-    private fun lockScreenUsingDevicePolicy() {
-        if (devicePolicyManager.isAdminActive(componentName)) {
-            try {
-                devicePolicyManager.lockNow()
-            } catch (e: SecurityException) {
-                Toast.makeText(this, "Ошибка при попытке заблокировать экран", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
     private fun updateTime() {
         val timer = Timer()
         val formatTime = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -99,71 +107,119 @@ class MainActivity : Activity() {
         }, 0, 60000)
     }
 
-    private fun updateBatteryLevel() {
-        val batteryStatus: Intent? = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+    private fun updateBatteryAndNetwork() {
+        val batteryStatus = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         batteryStatus?.let {
-            val level: Int = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-            val scale: Int = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-            val batteryPct: Float = level / scale.toFloat() * 100
-            batteryView.text = "${batteryPct.toInt()}%"
-        }
-    }
+            val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            val isCharging = it.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) != 0
+            val batteryPct = (level / scale.toFloat() * 100).toInt()
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_CODE_DEVICE_ADMIN) {
-            if (resultCode == Activity.RESULT_OK) {
-                Toast.makeText(this, "Права администратора получены!", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Не удалось получить права администратора", Toast.LENGTH_SHORT).show()
+            batteryView.text = "$batteryPct%"
+
+            val batteryIconRes = when {
+                isCharging -> R.drawable.battery12
+                batteryPct >= 95 -> R.drawable.battery11
+                batteryPct >= 90 -> R.drawable.battery10
+                batteryPct >= 80 -> R.drawable.battery9
+                batteryPct >= 70 -> R.drawable.battery8
+                batteryPct >= 60 -> R.drawable.battery7
+                batteryPct >= 50 -> R.drawable.battery6
+                batteryPct >= 40 -> R.drawable.battery5
+                batteryPct >= 30 -> R.drawable.battery4
+                batteryPct >= 20 -> R.drawable.battery3
+                batteryPct >= 10 -> R.drawable.battery2
+                batteryPct > 5 -> R.drawable.battery1
+                else -> R.drawable.battery0
             }
+            batteryIcon.setImageResource(batteryIconRes)
         }
+
+        val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+        val signal = telephonyManager.signalStrength
+        val level = signal?.level ?: 0
+
+        val networkIconRes = when (level) {
+            0 -> R.drawable.signal1
+            1 -> R.drawable.signal2
+            2 -> R.drawable.signal3
+            3 -> R.drawable.signal4
+            4 -> R.drawable.signal5
+            5 -> R.drawable.signal6
+            else -> R.drawable.signal1
+        }
+        networkIcon.setImageResource(networkIconRes)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        when (keyCode) {
+        return when (keyCode) {
+
+            KeyEvent.KEYCODE_HOME -> {
+                // Переходим в экран блокировки
+                val intent = Intent(this, LockScreenActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                startActivity(intent)
+                true
+            }
+
             KeyEvent.KEYCODE_BACK -> {
-                lockScreenUsingDevicePolicy()
-                return true
+                lockScreenUsingDevicePolicy(); true
             }
 
-            KeyEvent.KEYCODE_DPAD_CENTER,
-            KeyEvent.KEYCODE_ENTER -> {
-                // Центр D-Pad — здесь можно добавить действие выбора
-                Toast.makeText(this, "Выбрано", Toast.LENGTH_SHORT).show()
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_UP,
-            KeyEvent.KEYCODE_DPAD_DOWN,
-            KeyEvent.KEYCODE_DPAD_LEFT,
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                // Навигация — пока просто выводим направление
-                val direction = when (keyCode) {
-                    KeyEvent.KEYCODE_DPAD_UP -> "Вверх"
-                    KeyEvent.KEYCODE_DPAD_DOWN -> "Вниз"
-                    KeyEvent.KEYCODE_DPAD_LEFT -> "Влево"
-                    KeyEvent.KEYCODE_DPAD_RIGHT -> "Вправо"
-                    else -> ""
+            KeyEvent.KEYCODE_7 -> {
+                if (!isKey7Handled) {
+                    isKey7Handled = true
+                    handler.postDelayed({
+                        Toast.makeText(this, "Долгое нажатие на 7", Toast.LENGTH_SHORT).show()
+                        vibrateShort()
+                        try {
+                            startActivity(Intent(this, AllAppsActivity::class.java))
+                        } catch (e: Exception) {
+                            Toast.makeText(this, "Ошибка запуска AllAppsActivity", Toast.LENGTH_LONG).show()
+                        }
+                    }, LONG_PRESS_THRESHOLD)
                 }
-                Toast.makeText(this, direction, Toast.LENGTH_SHORT).show()
-                return true
+                true
             }
 
             KeyEvent.KEYCODE_MENU -> {
-                // Меню — переход в меню
-                val intent = Intent(this, MenuActivity::class.java)
-                startActivity(intent)
-                return true
+                startActivity(Intent(this, MenuActivity::class.java)); true
             }
 
-            KeyEvent.KEYCODE_SOFT_RIGHT -> {
-                // Правая клавиша — например, открыть контакты
-                Toast.makeText(this, "Открыть контакты", Toast.LENGTH_SHORT).show()
-                return true
-            }
+            else -> super.onKeyDown(keyCode, event)
+        }
+    }
 
-            else -> return super.onKeyDown(keyCode, event)
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_7) {
+            if (!isKey7Handled) {
+                Toast.makeText(this, "Кнопка 7 не удержана достаточно долго", Toast.LENGTH_SHORT).show()
+            }
+            handler.removeCallbacksAndMessages(null)
+            isKey7Handled = false
+            return true
+        }
+
+        return super.onKeyUp(keyCode, event)
+    }
+
+    private fun vibrateShort() {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(100)
+        }
+    }
+
+    private fun lockScreenUsingDevicePolicy() {
+        if (devicePolicyManager.isAdminActive(componentName)) {
+            try {
+                devicePolicyManager.lockNow()
+            } catch (e: SecurityException) {
+                Toast.makeText(this, "Ошибка при попытке заблокировать экран", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }

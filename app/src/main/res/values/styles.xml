@@ -1,0 +1,23 @@
+<resources>
+    <!-- Уже существующие стили -->
+
+    <style name="MenuButton">
+        <item name="android:layout_width">80dp</item>
+        <item name="android:layout_height">80dp</item>
+        <item name="android:scaleType">centerInside</item>
+        <item name="android:background">@drawable/default_button_background</item>
+        <item name="android:padding">8dp</item>
+
+    </style>
+    <style name="LargeNokiaMenuButton">
+        <item name="android:layout_width">0dp</item> <!-- Используем 0dp для ширины с weight для растяжения -->
+        <item name="android:layout_height">0dp</item> <!-- Используем 0dp для высоты с weight для растяжения -->
+        <item name="android:layout_margin">4dp</item> <!-- Уменьшаем отступы, чтобы кнопки были ближе друг к другу -->
+        <item name="android:layout_rowWeight">1</item> <!-- Растягиваем по высоте -->
+        <item name="android:layout_columnWeight">1</item> <!-- Растягиваем по ширине -->
+        <item name="android:background">@null</item> <!-- Убираем фон -->
+        <item name="android:scaleType">centerInside</item> <!-- Центрируем картинку внутри кнопки -->
+    </style>
+
+
+</resources>
