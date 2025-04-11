@@ -198,11 +198,13 @@ class LockScreenActivity : Activity() {
     }
 
     private fun unlockScreen() {
+
         isLockedScreenActive = false
         Toast.makeText(this, "Разблокировано", Toast.LENGTH_SHORT).show()
         val intent = Intent(this, MainActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         intent.putExtra("unlocked", true)
+        overridePendingTransition(0, 0)
         startActivity(intent)
         finish()
     }
@@ -223,6 +225,7 @@ class LockScreenActivity : Activity() {
 
     override fun onBackPressed() {
         // блокируем кнопку Назад
+
     }
 
     override fun onDestroy() {
