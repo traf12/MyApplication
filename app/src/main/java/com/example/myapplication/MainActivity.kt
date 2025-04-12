@@ -17,7 +17,6 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -43,21 +42,35 @@ class MainActivity : Activity() {
     private lateinit var componentName: ComponentName
 
     private val handler = Handler(Looper.getMainLooper())
-    private var isKey7Handled = false
+    private val retryHintHandler = Handler(Looper.getMainLooper())
+    private val screenOffHandler = Handler(Looper.getMainLooper())
+
     private val LONG_PRESS_THRESHOLD = 1000L
-    private val requestCodeDeviceAdmin = 1
+    private val autoLockTimeout = 30_000L
+    private val screenOffTimeout = 10_000L
 
     private var isKeypadLocked = true
     private var centerPressed = false
+    private var isKey7Handled = false
     private var isLeavingToSubActivity = false
 
-    private val autoLockTimeout = 30_000L
     private val autoLockHandler = Handler(Looper.getMainLooper())
     private val autoLockRunnable = Runnable {
-        if (!isFinishing) {
-            isKeypadLocked = true
+        isKeypadLocked = true
+        centerPressed = false
+        showLockUI("Нажмите OK для разблокировки")
+    }
+
+    private val screenOffRunnable = Runnable {
+        if (isKeypadLocked) {
+            lockScreenUsingDevicePolicy()
+        }
+    }
+
+    private val retryHintRunnable = Runnable {
+        if (isKeypadLocked && centerPressed) {
             centerPressed = false
-            showLockUI("Клавиши автоматически заблокированы")
+            showLockUI("Нажмите OK для разблокировки")
         }
     }
 
@@ -66,7 +79,6 @@ class MainActivity : Activity() {
 
         if (!isNotificationServiceEnabled(this)) {
             startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
-            Toast.makeText(this, "Пожалуйста, включите доступ к уведомлениям", Toast.LENGTH_LONG).show()
         }
 
         setContentView(R.layout.activity_main)
@@ -92,40 +104,44 @@ class MainActivity : Activity() {
         if (!devicePolicyManager.isAdminActive(componentName)) {
             val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
                 putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
-                putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Приложение требует права администратора для блокировки экрана.")
+                putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Нужны права администратора")
             }
-            startActivityForResult(intent, requestCodeDeviceAdmin)
+            startActivity(intent)
         }
 
         mediaController = MediaControllerManager.mediaController
         updateTrackInfo()
-
-        val mediaHandler = Handler(Looper.getMainLooper())
-        mediaHandler.post(object : Runnable {
-            override fun run() {
-                mediaController = MediaControllerManager.mediaController
-                updateTrackInfo()
-                mediaHandler.postDelayed(this, 5000)
-            }
-        })
-
-        val batteryHandler = Handler(Looper.getMainLooper())
-        batteryHandler.post(object : Runnable {
-            override fun run() {
-                updateBatteryAndNetwork()
-                batteryHandler.postDelayed(this, 10000)
-            }
-        })
-
         updateTime()
         updateBatteryAndNetwork()
+
         hideSystemUI()
         showLockUI("Нажмите OK для разблокировки")
         resetAutoLockTimer()
+
+        handler.post(object : Runnable {
+            override fun run() {
+                mediaController = MediaControllerManager.mediaController
+                updateTrackInfo()
+                handler.postDelayed(this, 5000)
+            }
+        })
+
+        handler.post(object : Runnable {
+            override fun run() {
+                updateBatteryAndNetwork()
+                handler.postDelayed(this, 10000)
+            }
+        })
     }
 
     override fun onUserInteraction() {
         super.onUserInteraction()
+        resetAutoLockTimer()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        isLeavingToSubActivity = false
         resetAutoLockTimer()
     }
 
@@ -136,41 +152,27 @@ class MainActivity : Activity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        isLeavingToSubActivity = false
-        resetAutoLockTimer()
-    }
-
     private fun resetAutoLockTimer() {
         autoLockHandler.removeCallbacks(autoLockRunnable)
         autoLockHandler.postDelayed(autoLockRunnable, autoLockTimeout)
+
+        screenOffHandler.removeCallbacks(screenOffRunnable)
+        if (isKeypadLocked) {
+            screenOffHandler.postDelayed(screenOffRunnable, screenOffTimeout)
+        }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val isMusicPlaying = mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
 
-        when (keyCode) {
-            KeyEvent.KEYCODE_HOME, KeyEvent.KEYCODE_POWER, KeyEvent.KEYCODE_ENDCALL -> {
-                if (isKeypadLocked) {
-                    lockScreenUsingDevicePolicy()
-                } else {
-                    isKeypadLocked = true
-                    centerPressed = false
-                    showLockUI("Клавиши заблокированы")
-                }
-                return true
-            }
-            KeyEvent.KEYCODE_BACK -> {
-                if (isKeypadLocked) {
-                    lockScreenUsingDevicePolicy()
-                } else {
-                    isKeypadLocked = true
-                    centerPressed = false
-                    showLockUI("Клавиши заблокированы")
-                }
-                return true
-            }
+        if (keyCode == KeyEvent.KEYCODE_BACK ||
+            keyCode == KeyEvent.KEYCODE_HOME ||
+            keyCode == KeyEvent.KEYCODE_POWER ||
+            keyCode == KeyEvent.KEYCODE_ENDCALL) {
+            isKeypadLocked = true
+            centerPressed = false
+            showLockUI("Нажмите OK для разблокировки")
+            return true
         }
 
         if (isKeypadLocked) {
@@ -178,6 +180,8 @@ class MainActivity : Activity() {
                 KeyEvent.KEYCODE_DPAD_CENTER -> {
                     centerPressed = true
                     showLockUI("Нажмите *")
+                    retryHintHandler.removeCallbacks(retryHintRunnable)
+                    retryHintHandler.postDelayed(retryHintRunnable, 5000)
                     true
                 }
                 KeyEvent.KEYCODE_STAR -> {
@@ -185,10 +189,10 @@ class MainActivity : Activity() {
                         isKeypadLocked = false
                         centerPressed = false
                         hideLockUI()
-                        Toast.makeText(this, "Клавиши разблокированы", Toast.LENGTH_SHORT).show()
+                        retryHintHandler.removeCallbacks(retryHintRunnable)
                         resetAutoLockTimer()
                     } else {
-                        showLockUI("Сначала нажмите OK")
+                        showLockUI("Нажмите OK для разблокировки")
                     }
                     true
                 }
@@ -204,8 +208,7 @@ class MainActivity : Activity() {
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     if (isMusicPlaying) audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI); true
                 }
-                KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SOFT_LEFT, KeyEvent.KEYCODE_SOFT_RIGHT, KeyEvent.KEYCODE_7 -> true
-                else -> true // все остальные блокируем
+                else -> true
             }
         }
 
@@ -222,11 +225,7 @@ class MainActivity : Activity() {
                     isKey7Handled = true
                     handler.postDelayed({
                         isLeavingToSubActivity = true
-                        try {
-                            startActivity(Intent(this, AllAppsActivity::class.java))
-                        } catch (e: Exception) {
-                            Toast.makeText(this, "Ошибка запуска AllAppsActivity", Toast.LENGTH_LONG).show()
-                        }
+                        startActivity(Intent(this, AllAppsActivity::class.java))
                         isKey7Handled = false
                     }, LONG_PRESS_THRESHOLD)
                 }
@@ -235,6 +234,7 @@ class MainActivity : Activity() {
             else -> super.onKeyDown(keyCode, event)
         }
     }
+
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_7) {
             handler.removeCallbacksAndMessages(null)
@@ -244,30 +244,11 @@ class MainActivity : Activity() {
         return super.onKeyUp(keyCode, event)
     }
 
-    @Deprecated("Deprecated in Android 13. Use OnBackPressedDispatcher instead")
-    override fun onBackPressed() {
-        if (isKeypadLocked) {
-            lockScreenUsingDevicePolicy()
-        } else {
-            isKeypadLocked = true
-            centerPressed = false
-            showLockUI("Клавиши заблокированы")
-        }
-    }
-
     private fun showLockUI(hint: String) {
         lockOverlay.visibility = View.VISIBLE
         lockIcon.visibility = View.VISIBLE
         unlockHint.visibility = View.VISIBLE
         unlockHint.text = hint
-
-        lockIcon.alpha = 1f
-        unlockHint.alpha = 1f
-        unlockHint.setTextColor(resources.getColor(android.R.color.white))
-        trackTitle.alpha = 1f
-        trackArtist.alpha = 1f
-        trackTitle.setTextColor(resources.getColor(android.R.color.white))
-        trackArtist.setTextColor(resources.getColor(android.R.color.white))
         menuLabel.alpha = 0.3f
         contactsLabel.alpha = 0.3f
     }
@@ -278,8 +259,6 @@ class MainActivity : Activity() {
         unlockHint.visibility = View.GONE
         menuLabel.alpha = 1f
         contactsLabel.alpha = 1f
-        trackTitle.alpha = 1f
-        trackArtist.alpha = 1f
     }
 
     private fun isNotificationServiceEnabled(context: Context): Boolean {
@@ -298,10 +277,10 @@ class MainActivity : Activity() {
         } else {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                            View.SYSTEM_UI_FLAG_FULLSCREEN or
-                            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    )
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            )
         }
     }
 
@@ -339,23 +318,21 @@ class MainActivity : Activity() {
         batteryStatus?.let {
             val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-            val isCharging = it.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) != 0
             val batteryPct = (level / scale.toFloat() * 100).toInt()
 
             val batteryIconRes = when {
-                isCharging && batteryPct == 100 -> R.drawable.battery11
-                isCharging && batteryPct < 100 -> R.drawable.battery12
-                batteryPct in 90..100 -> R.drawable.battery10
-                batteryPct in 80..89 -> R.drawable.battery9
-                batteryPct in 70..79 -> R.drawable.battery8
-                batteryPct in 60..69 -> R.drawable.battery7
-                batteryPct in 50..59 -> R.drawable.battery6
-                batteryPct in 40..49 -> R.drawable.battery4
-                batteryPct in 30..39 -> R.drawable.battery3
-                batteryPct in 20..29 -> R.drawable.battery2
-                batteryPct in 10..19 -> R.drawable.battery1
+                batteryPct >= 90 -> R.drawable.battery10
+                batteryPct >= 80 -> R.drawable.battery9
+                batteryPct >= 70 -> R.drawable.battery8
+                batteryPct >= 60 -> R.drawable.battery7
+                batteryPct >= 50 -> R.drawable.battery6
+                batteryPct >= 40 -> R.drawable.battery4
+                batteryPct >= 30 -> R.drawable.battery3
+                batteryPct >= 20 -> R.drawable.battery2
+                batteryPct >= 10 -> R.drawable.battery1
                 else -> R.drawable.battery0
             }
+
             batteryIcon.setImageResource(batteryIconRes)
         }
 
@@ -371,6 +348,7 @@ class MainActivity : Activity() {
             4 -> R.drawable.signal5
             else -> R.drawable.signal1
         }
+
         networkIcon.setImageResource(networkIconRes)
     }
 
@@ -379,19 +357,8 @@ class MainActivity : Activity() {
             try {
                 devicePolicyManager.lockNow()
             } catch (e: SecurityException) {
-                Toast.makeText(this, "Ошибка при попытке заблокировать экран", Toast.LENGTH_SHORT).show()
+                // ignore
             }
-        }
-    }
-
-
-    private fun vibrateShort() {
-        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(100)
         }
     }
 }
