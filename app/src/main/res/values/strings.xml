@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">My Application</string>
+    <string name="app_name" translatable="false">ButtonLauncher</string>
     <string name="device_admin" translatable="false">Device Admin</string>
     <string name="accessibility_service_description" translatable="false">Приложение использует специальные возможности</string>
 

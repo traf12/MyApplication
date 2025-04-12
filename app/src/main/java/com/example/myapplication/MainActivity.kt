@@ -45,7 +45,7 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private var isKey7Handled = false
     private val LONG_PRESS_THRESHOLD = 1000L
-    private val REQUEST_CODE_DEVICE_ADMIN = 1
+    private val requestCodeDeviceAdmin = 1
 
     private var isKeypadLocked = true
     private var centerPressed = false
@@ -94,26 +94,28 @@ class MainActivity : Activity() {
                 putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
                 putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Приложение требует права администратора для блокировки экрана.")
             }
-            startActivityForResult(intent, REQUEST_CODE_DEVICE_ADMIN)
+            startActivityForResult(intent, requestCodeDeviceAdmin)
         }
 
         mediaController = MediaControllerManager.mediaController
         updateTrackInfo()
 
-        Timer().scheduleAtFixedRate(object : TimerTask() {
+        val mediaHandler = Handler(Looper.getMainLooper())
+        mediaHandler.post(object : Runnable {
             override fun run() {
-                runOnUiThread {
-                    mediaController = MediaControllerManager.mediaController
-                    updateTrackInfo()
-                }
+                mediaController = MediaControllerManager.mediaController
+                updateTrackInfo()
+                mediaHandler.postDelayed(this, 5000)
             }
-        }, 0, 5000)
+        })
 
-        Timer().scheduleAtFixedRate(object : TimerTask() {
+        val batteryHandler = Handler(Looper.getMainLooper())
+        batteryHandler.post(object : Runnable {
             override fun run() {
-                runOnUiThread { updateBatteryAndNetwork() }
+                updateBatteryAndNetwork()
+                batteryHandler.postDelayed(this, 10000)
             }
-        }, 0, 10000)
+        })
 
         updateTime()
         updateBatteryAndNetwork()
@@ -225,6 +227,7 @@ class MainActivity : Activity() {
                         } catch (e: Exception) {
                             Toast.makeText(this, "Ошибка запуска AllAppsActivity", Toast.LENGTH_LONG).show()
                         }
+                        isKey7Handled = false
                     }, LONG_PRESS_THRESHOLD)
                 }
                 true
@@ -232,7 +235,16 @@ class MainActivity : Activity() {
             else -> super.onKeyDown(keyCode, event)
         }
     }
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_7) {
+            handler.removeCallbacksAndMessages(null)
+            isKey7Handled = false
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
+    }
 
+    @Deprecated("Deprecated in Android 13. Use OnBackPressedDispatcher instead")
     override fun onBackPressed() {
         if (isKeypadLocked) {
             lockScreenUsingDevicePolicy()

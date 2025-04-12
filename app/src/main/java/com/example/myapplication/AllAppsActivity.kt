@@ -43,7 +43,14 @@ class AllAppsActivity : Activity() {
                 val item = appItems[position]
                 val textView = view.findViewById<TextView>(android.R.id.text1)
                 textView.text = item.label
-                textView.setCompoundDrawablesWithIntrinsicBounds(item.icon, null, null, null)
+
+                val iconSizePx = (48 * resources.displayMetrics.density).toInt() // 48dp
+
+                val scaledIcon = item.icon.apply {
+                    setBounds(0, 0, iconSizePx, iconSizePx)
+                }
+
+                textView.setCompoundDrawables(scaledIcon, null, null, null)
                 textView.compoundDrawablePadding = 16
                 return view
             }
