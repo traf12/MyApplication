@@ -3,7 +3,13 @@ package com.example.myapplication
 import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.*
+import android.media.AudioManager
+import android.media.MediaMetadata
+import android.media.session.MediaController
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.os.*
+import android.provider.Settings
 import android.telephony.TelephonyManager
 import android.view.KeyEvent
 import android.view.View
@@ -21,6 +27,12 @@ class MainActivity : Activity() {
     private lateinit var dateView: TextView
     private lateinit var batteryIcon: ImageView
     private lateinit var networkIcon: ImageView
+    private lateinit var audioManager: AudioManager
+    private lateinit var mediaSessionManager: MediaSessionManager
+    private var mediaController: MediaController? = null
+
+    private lateinit var trackTitle: TextView
+    private lateinit var trackArtist: TextView
 
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var componentName: ComponentName
@@ -30,17 +42,37 @@ class MainActivity : Activity() {
     private var isAppGoingToBackground = true
 
     private var isKey7Handled = false
-    private var key7DownTime: Long = 0
     private val LONG_PRESS_THRESHOLD = 1000L
     private val REQUEST_CODE_DEVICE_ADMIN = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-
-
+        if (!isNotificationServiceEnabled(this)) {
+            startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
+            Toast.makeText(this, "Пожалуйста, включите доступ к уведомлениям", Toast.LENGTH_LONG).show()
+        }
 
         setContentView(R.layout.activity_main)
+
+        audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+        mediaSessionManager = getSystemService(MEDIA_SESSION_SERVICE) as MediaSessionManager
+
+        trackTitle = findViewById(R.id.trackTitle)
+        trackArtist = findViewById(R.id.trackArtist)
+
+        mediaController = MediaControllerManager.mediaController
+        updateTrackInfo()
+
+        Timer().scheduleAtFixedRate(object : TimerTask() {
+            override fun run() {
+                runOnUiThread {
+                    mediaController = MediaControllerManager.mediaController
+                    updateTrackInfo()
+                }
+            }
+        }, 0, 5000)
+
         hideSystemUI()
 
         screenOffReceiver = object : BroadcastReceiver() {
@@ -54,15 +86,11 @@ class MainActivity : Activity() {
         }
         registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
 
-
-
-
         timeView = findViewById(R.id.timeView)
         dateView = findViewById(R.id.dateView)
         batteryIcon = findViewById(R.id.batteryIcon)
         networkIcon = findViewById(R.id.networkIcon)
 
-        // Инициализация devicePolicyManager
         devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         componentName = ComponentName(this, MyDeviceAdminReceiver::class.java)
 
@@ -84,6 +112,12 @@ class MainActivity : Activity() {
         }, 0, 10000)
     }
 
+    private fun isNotificationServiceEnabled(context: Context): Boolean {
+        val cn = ComponentName(context, MediaNotificationListener::class.java)
+        val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
+        return flat?.contains(cn.flattenToString()) == true
+    }
+
     private fun hideSystemUI() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false)
@@ -98,6 +132,21 @@ class MainActivity : Activity() {
                             or View.SYSTEM_UI_FLAG_FULLSCREEN
                             or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                     )
+        }
+    }
+
+    private fun updateTrackInfo() {
+        val metadata = mediaController?.metadata
+        val playbackState = mediaController?.playbackState
+
+        if (metadata != null && playbackState?.state == PlaybackState.STATE_PLAYING) {
+            trackTitle.text = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
+            trackArtist.text = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
+            trackTitle.visibility = View.VISIBLE
+            trackArtist.visibility = View.VISIBLE
+        } else {
+            trackTitle.visibility = View.GONE
+            trackArtist.visibility = View.GONE
         }
     }
 
@@ -118,11 +167,28 @@ class MainActivity : Activity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        val isMusicPlaying = mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
+
         return when (keyCode) {
             KeyEvent.KEYCODE_BACK -> {
                 lockScreenUsingDevicePolicy(); true
             }
-
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                if (isMusicPlaying) mediaController?.transportControls?.skipToPrevious()
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (isMusicPlaying) mediaController?.transportControls?.skipToNext()
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_UP -> {
+                if (isMusicPlaying) audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (isMusicPlaying) audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
+                true
+            }
             KeyEvent.KEYCODE_7 -> {
                 if (!isKey7Handled) {
                     isKey7Handled = true
@@ -138,13 +204,11 @@ class MainActivity : Activity() {
                 }
                 true
             }
-
             KeyEvent.KEYCODE_MENU -> {
                 startActivity(Intent(this, MenuActivity::class.java))
                 overridePendingTransition(0, 0)
                 true
             }
-
             else -> super.onKeyDown(keyCode, event)
         }
     }

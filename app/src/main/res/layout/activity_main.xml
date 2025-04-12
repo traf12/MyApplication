@@ -79,5 +79,26 @@
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:layout_margin="16dp" />
+    <TextView
+        android:id="@+id/trackTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="20sp"
+        android:textColor="@android:color/white"
+        android:layout_below="@id/dateView"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="24dp"
+        android:visibility="gone" />
 
+    <!-- Исполнитель -->
+    <TextView
+        android:id="@+id/trackArtist"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textColor="@android:color/white"
+        android:layout_below="@id/trackTitle"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="4dp"
+        android:visibility="gone" />
 </RelativeLayout>

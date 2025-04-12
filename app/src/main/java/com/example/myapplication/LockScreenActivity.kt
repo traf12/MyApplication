@@ -3,8 +3,9 @@ package com.example.myapplication
 import android.app.Activity
 import android.content.*
 import android.media.AudioManager
+import android.media.MediaMetadata
 import android.media.session.MediaController
-import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.os.*
 import android.telephony.TelephonyManager
 import android.view.KeyEvent
@@ -31,7 +32,6 @@ class LockScreenActivity : Activity() {
     private lateinit var trackArtist: TextView
 
     private lateinit var audioManager: AudioManager
-    private lateinit var mediaSessionManager: MediaSessionManager
     private var mediaController: MediaController? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,15 +58,15 @@ class LockScreenActivity : Activity() {
         wakeLock.acquire()
 
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-        mediaSessionManager = getSystemService(MEDIA_SESSION_SERVICE) as MediaSessionManager
+        mediaController = MediaControllerManager.mediaController
 
-        initMediaController()
         updateBatteryAndNetwork()
         updateTrackInfo()
 
         Timer().scheduleAtFixedRate(object : TimerTask() {
             override fun run() {
                 runOnUiThread {
+                    mediaController = MediaControllerManager.mediaController
                     updateBatteryAndNetwork()
                     updateTrackInfo()
                 }
@@ -74,24 +74,13 @@ class LockScreenActivity : Activity() {
         }, 0, 5000)
     }
 
-    private fun initMediaController() {
-        try {
-            val controllers = mediaSessionManager.getActiveSessions(null)
-            if (controllers.isNotEmpty()) {
-                mediaController = controllers[0]
-            }
-        } catch (e: SecurityException) {
-            Toast.makeText(this, "Нет разрешения на чтение медиа", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     private fun updateTrackInfo() {
         val metadata = mediaController?.metadata
         val playbackState = mediaController?.playbackState
 
-        if (metadata != null && playbackState != null && playbackState.state == android.media.session.PlaybackState.STATE_PLAYING) {
-            trackTitle.text = metadata.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: ""
-            trackArtist.text = metadata.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST) ?: ""
+        if (metadata != null && playbackState != null && playbackState.state == PlaybackState.STATE_PLAYING) {
+            trackTitle.text = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
+            trackArtist.text = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
             trackTitle.visibility = View.VISIBLE
             trackArtist.visibility = View.VISIBLE
         } else {
@@ -143,7 +132,7 @@ class LockScreenActivity : Activity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        val isMusicPlaying = mediaController?.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING
+        val isMusicPlaying = mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER -> {
@@ -151,7 +140,6 @@ class LockScreenActivity : Activity() {
                 statusText.text = "Теперь нажмите *"
                 true
             }
-
             KeyEvent.KEYCODE_STAR -> {
                 if (centerPressed) {
                     unlockScreen()
@@ -160,32 +148,26 @@ class LockScreenActivity : Activity() {
                 }
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 if (isMusicPlaying) mediaController?.transportControls?.skipToPrevious()
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (isMusicPlaying) mediaController?.transportControls?.skipToNext()
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_UP -> {
                 if (isMusicPlaying) audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 if (isMusicPlaying) audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
                 true
             }
-
             KeyEvent.KEYCODE_HOME -> {
                 lockDevice()
                 true
             }
-
             else -> true
         }
     }
@@ -198,7 +180,6 @@ class LockScreenActivity : Activity() {
     }
 
     private fun unlockScreen() {
-
         isLockedScreenActive = false
         Toast.makeText(this, "Разблокировано", Toast.LENGTH_SHORT).show()
         val intent = Intent(this, MainActivity::class.java)
@@ -225,7 +206,6 @@ class LockScreenActivity : Activity() {
 
     override fun onBackPressed() {
         // блокируем кнопку Назад
-
     }
 
     override fun onDestroy() {
