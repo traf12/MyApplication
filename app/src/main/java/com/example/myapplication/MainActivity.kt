@@ -266,7 +266,7 @@ class MainActivity : Activity() {
         val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
         return flat?.contains(cn.flattenToString()) == true
     }
-
+    @Suppress("DEPRECATION")
     private fun hideSystemUI() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false)
@@ -302,17 +302,20 @@ class MainActivity : Activity() {
     private fun updateTime() {
         val formatTime = SimpleDateFormat("HH:mm", Locale.getDefault())
         val formatDate = SimpleDateFormat("dd MMMM, EEEE", Locale.getDefault())
-        Timer().scheduleAtFixedRate(object : TimerTask() {
-            override fun run() {
-                runOnUiThread {
-                    val now = Date()
-                    timeView.text = formatTime.format(now)
-                    dateView.text = formatDate.format(now)
-                }
-            }
-        }, 0, 60000)
-    }
+        val handler = Handler(Looper.getMainLooper())
 
+        val runnable = object : Runnable {
+            override fun run() {
+                val now = Calendar.getInstance().time
+                timeView.text = formatTime.format(now)
+                dateView.text = formatDate.format(now)
+                val delay = 60_000 - (System.currentTimeMillis() % 60_000)
+                handler.postDelayed(this, delay)
+            }
+        }
+
+        handler.post(runnable)
+    }
     private fun updateBatteryAndNetwork() {
         val batteryStatus = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         batteryStatus?.let {

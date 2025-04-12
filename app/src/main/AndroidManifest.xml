@@ -99,16 +99,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Локскрин -->
-        <activity
-            android:name=".LockScreenActivity"
-            android:exported="false"
-            android:launchMode="singleInstance"
-            android:theme="@style/Theme.MyApplication"
-            android:excludeFromRecents="true"
-            android:screenOrientation="portrait"
-            android:configChanges="orientation|keyboardHidden|screenSize" />
-
         <!-- Все приложения -->
         <activity
             android:name=".AllAppsActivity"
