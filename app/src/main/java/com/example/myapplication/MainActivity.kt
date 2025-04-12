@@ -165,6 +165,15 @@ class MainActivity : Activity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val isMusicPlaying = mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
 
+        if (isKeypadLocked &&
+            (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME)) {
+
+            screenOffHandler.removeCallbacksAndMessages(null)
+            screenOffHandler.postDelayed({
+                lockScreenUsingDevicePolicy()
+            }, 0) // Можно поставить задержку, например 1500
+        }
+
         if (keyCode == KeyEvent.KEYCODE_BACK ||
             keyCode == KeyEvent.KEYCODE_HOME ||
             keyCode == KeyEvent.KEYCODE_POWER ||
@@ -177,6 +186,7 @@ class MainActivity : Activity() {
 
         if (isKeypadLocked) {
             return when (keyCode) {
+
                 KeyEvent.KEYCODE_DPAD_CENTER -> {
                     centerPressed = true
                     showLockUI("Нажмите *")
@@ -184,6 +194,7 @@ class MainActivity : Activity() {
                     retryHintHandler.postDelayed(retryHintRunnable, 5000)
                     true
                 }
+
                 KeyEvent.KEYCODE_STAR -> {
                     if (centerPressed) {
                         isKeypadLocked = false
@@ -213,6 +224,7 @@ class MainActivity : Activity() {
         }
 
         resetAutoLockTimer()
+
 
         return when (keyCode) {
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SOFT_LEFT -> {
