@@ -14,9 +14,6 @@
         android:src="@drawable/signal1" />
 
     <!-- Иконка батареи (справа сверху, слева от процента) -->
-
-    <!-- Процент заряда -->
-
     <ImageView
         android:id="@+id/batteryIcon"
         android:layout_width="24dp"
@@ -26,6 +23,7 @@
         android:layout_marginEnd="8dp"
         android:src="@drawable/battery0" />
 
+    <!-- Процент заряда -->
     <TextView
         android:id="@+id/batteryView"
         android:layout_width="wrap_content"
@@ -33,7 +31,8 @@
         android:textSize="18sp"
         android:textColor="@android:color/white"
         android:layout_alignParentEnd="true"
-        android:layout_margin="8dp" />
+        android:layout_margin="8dp"
+        android:layout_toStartOf="@id/batteryIcon" />
 
     <!-- Время -->
     <TextView
@@ -56,6 +55,61 @@
         android:layout_centerHorizontal="true"
         android:layout_marginTop="8dp" />
 
+
+    <!-- Затемнение -->
+    <View
+        android:id="@+id/lockOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:visibility="gone" />
+
+    <!-- Название трека -->
+    <TextView
+        android:id="@+id/trackTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="20sp"
+        android:textColor="@android:color/white"
+        android:layout_below="@id/dateView"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="24dp"
+        android:visibility="gone" />
+
+    <!-- Исполнитель -->
+    <TextView
+        android:id="@+id/trackArtist"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textColor="@android:color/white"
+        android:layout_below="@id/trackTitle"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="4dp"
+        android:visibility="gone" />
+
+    <!-- Надпись "Разблокировка: OK → *" -->
+    <TextView
+        android:id="@+id/unlockHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Разблокировка: OK → *"
+        android:textSize="18sp"
+        android:textColor="@android:color/white"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="60dp"
+        android:visibility="gone" />
+
+    <!-- Иконка замка -->
+    <ImageView
+        android:id="@+id/lockIcon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_lock"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="40dp"
+        android:visibility="gone" />
     <!-- Левая софт-клавиша -->
     <TextView
         android:id="@+id/menuLabel"
@@ -79,26 +133,5 @@
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:layout_margin="16dp" />
-    <TextView
-        android:id="@+id/trackTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="20sp"
-        android:textColor="@android:color/white"
-        android:layout_below="@id/dateView"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="24dp"
-        android:visibility="gone" />
 
-    <!-- Исполнитель -->
-    <TextView
-        android:id="@+id/trackArtist"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:textColor="@android:color/white"
-        android:layout_below="@id/trackTitle"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="4dp"
-        android:visibility="gone" />
 </RelativeLayout>

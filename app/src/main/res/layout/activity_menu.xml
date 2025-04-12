@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:text="Журнал вызовов"
+        android:text=""
         android:textColor="@android:color/white"
         android:textSize="24sp"
         android:padding="16dp" />
