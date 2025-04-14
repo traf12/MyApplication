@@ -26,104 +26,86 @@
         android:rowCount="3"
         android:padding="4dp">
 
-        <!-- 9 одинаковых квадратных кнопок без изображений -->
+        <!-- 9 одинаковых квадратных кнопок -->
         <ImageButton
             android:id="@+id/appButton1"
-            style="@style/LargeNokiaMenuButton"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:scaleType="fitCenter"
             android:background="@drawable/default_button_background" />
 
         <ImageButton
             android:id="@+id/appButton2"
-            style="@style/LargeNokiaMenuButton"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:scaleType="fitCenter"
             android:background="@drawable/default_button_background" />
 
         <ImageButton
             android:id="@+id/appButton3"
-            style="@style/LargeNokiaMenuButton"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:scaleType="fitCenter"
             android:background="@drawable/default_button_background" />
 
         <ImageButton
             android:id="@+id/appButton4"
-            style="@style/LargeNokiaMenuButton"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:scaleType="fitCenter"
             android:background="@drawable/default_button_background" />
 
         <ImageButton
             android:id="@+id/appButton5"
-            style="@style/LargeNokiaMenuButton"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:scaleType="fitCenter"
             android:background="@drawable/default_button_background" />
 
         <ImageButton
             android:id="@+id/appButton6"
-            style="@style/LargeNokiaMenuButton"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:scaleType="fitCenter"
             android:background="@drawable/default_button_background" />
 
         <ImageButton
             android:id="@+id/appButton7"
-            style="@style/LargeNokiaMenuButton"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:scaleType="fitCenter"
             android:background="@drawable/default_button_background" />
 
         <ImageButton
             android:id="@+id/appButton8"
-            style="@style/LargeNokiaMenuButton"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:scaleType="fitCenter"
             android:background="@drawable/default_button_background" />
 
         <ImageButton
             android:id="@+id/appButton9"
-            style="@style/LargeNokiaMenuButton"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:scaleType="fitCenter"
             android:background="@drawable/default_button_background" />
 
     </GridLayout>

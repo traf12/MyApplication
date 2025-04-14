@@ -1,62 +1,35 @@
 package com.example.myapplication
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.*
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.os.*
+import android.util.Base64
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
-import android.widget.GridLayout
-import android.widget.ImageButton
-import android.widget.TextView
-import android.widget.Toast
 import android.view.accessibility.AccessibilityEvent
+import android.widget.*
+import java.io.ByteArrayOutputStream
 
 class MenuActivity : Activity() {
 
-    private lateinit var gridLayout: GridLayout
     private lateinit var buttons: Array<ImageButton>
     private lateinit var headerTextView: TextView
+    private val prefs by lazy {
+        getSharedPreferences("menu_prefs", Context.MODE_PRIVATE)
+    }
 
-    private val handler = Handler(Looper.getMainLooper())
-
-    private var selectedIndex = 0
-
-    private val customIcons = listOf(
-        R.drawable.ic_slot1, // Звонки
-        R.drawable.ic_slot2, // Контакты
-        R.drawable.ic_slot3, // Часы
-        R.drawable.ic_slot4, // Радио
-        R.drawable.ic_slot5, // СМС
-        R.drawable.ic_slot6, // Калькулятор
-        R.drawable.ic_slot7, // Настройки
-        R.drawable.ic_slot8, // Календарь
-        R.drawable.ic_slot9  // SIM-меню
-    )
-
-    private val customLabels = listOf(
-        "Звонки",
-        "Контакты",
-        "Часы",
-        "Радио",
-        "СМС",
-        "Калькулятор",
-        "Настройки",
-        "Календарь",
-        "SIM-меню"
-    )
-
-    private val predefinedPackages = listOf(
-        "com.android.dialer",              // Звонки
-        "com.android.contacts",            // Контакты
-        "com.google.android.clock",        // Часы
-        "com.android.fmradio",             // Радио
-        "com.android.mms",                 // СМС
-        "com.android.calculator",          // Калькулятор
-        "com.android.settings",            // Настройки
-        "com.android.calendar",            // Календарь
-        "com.android.stk"                  // SIM-меню
-    )
+    private var selectedIndex = 4
+    private var isAppDialogShowing = false
+    private var isRemoveDialogShowing = false
+    private val holdThreshold = 1000L
+    private val holdHandlers = Array(9) { Handler(Looper.getMainLooper()) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,8 +37,6 @@ class MenuActivity : Activity() {
         hideSystemUI()
 
         headerTextView = findViewById(R.id.headerTextView)
-        gridLayout = findViewById(R.id.gridLayout)
-
         buttons = arrayOf(
             findViewById(R.id.appButton1),
             findViewById(R.id.appButton2),
@@ -79,88 +50,200 @@ class MenuActivity : Activity() {
         )
 
         buttons.forEachIndexed { index, button ->
+            button.background = getDrawable(R.drawable.button_selector)
+
             button.isFocusable = true
             button.isFocusableInTouchMode = true
-            button.setImageResource(customIcons[index])
+            button.scaleType = ImageView.ScaleType.FIT_XY
+            button.setPadding(0, 0, 0, 0)
+            button.adjustViewBounds = true
+
+            // Отключить сенсор
+            button.setOnTouchListener { _, _ -> true }
+
             button.setOnClickListener {
-                val pkg = predefinedPackages.getOrNull(index)
-                pkg?.let { launchApp(it) }
+                val intentUri = prefs.getString("intent_$index", null)
+                intentUri?.let {
+                    try {
+                        val intent = Intent.parseUri(it, 0)
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Ошибка запуска", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
+
+            button.setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) {
+                    selectedIndex = index
+                    updateHeader(index)
+                    loadIcon(index)
+                    // ✅ Накладываем затемнение
+                    button.setColorFilter(0x88000000.toInt()) // прозрачный чёрный
+                } else {
+                    button.clearColorFilter()
+                }
+            }
+
+
+            button.setOnKeyListener { _, keyCode, event ->
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_CENTER -> {
+                        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                            holdHandlers[index].postDelayed({
+                                if (!isAppDialogShowing) {
+                                    isAppDialogShowing = true
+                                    showAppChooserDialog(index)
+                                }
+                            }, holdThreshold)
+                        } else if (event.action == KeyEvent.ACTION_UP) {
+                            holdHandlers[index].removeCallbacksAndMessages(null)
+                        }
+                    }
+                    KeyEvent.KEYCODE_BACK -> {
+                        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                            holdHandlers[index].postDelayed({
+                                if (!isRemoveDialogShowing) {
+                                    isRemoveDialogShowing = true
+                                    showRemoveDialog(index)
+                                }
+                            }, holdThreshold)
+                        } else if (event.action == KeyEvent.ACTION_UP) {
+                            holdHandlers[index].removeCallbacksAndMessages(null)
+                            if (!isRemoveDialogShowing) {
+                                finish()
+                            }
+                        }
+                    }
+                }
+                false
+            }
+
+            loadIcon(index)
         }
     }
 
     override fun onResume() {
         super.onResume()
-        handler.postDelayed({
-            updateSelection(4)
-            buttons[4].sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED)
+        Handler(Looper.getMainLooper()).postDelayed({
+            val btn = buttons[selectedIndex]
+            btn.requestFocus()
+            btn.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED)
+            btn.refreshDrawableState() // 💡 ключевая строка
+            updateHeader(selectedIndex)
+            loadIcon(selectedIndex)
         }, 100)
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_CENTER -> {
-                val pkg = predefinedPackages.getOrNull(selectedIndex)
-                pkg?.let { launchApp(it) }
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                val newIndex = if (selectedIndex >= 3) selectedIndex - 3 else selectedIndex + 6
-                updateSelection(newIndex)
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_DOWN -> {
-                val newIndex = if (selectedIndex <= 5) selectedIndex + 3 else selectedIndex - 6
-                updateSelection(newIndex)
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_LEFT -> {
-                val newIndex = if (selectedIndex % 3 != 0) selectedIndex - 1 else selectedIndex + 2
-                updateSelection(newIndex)
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                val newIndex = if (selectedIndex % 3 != 2) selectedIndex + 1 else selectedIndex - 2
-                updateSelection(newIndex)
-                return true
-            }
-            KeyEvent.KEYCODE_BACK -> {
-                val intent = Intent(this, MainActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                intent.putExtra("from_sub_activity", true)
-                startActivity(intent)
-                overridePendingTransition(0, 0)
-                finish()
-                return true
-            }
-        }
-        return super.onKeyDown(keyCode, event)
-    }
 
-    private fun updateSelection(index: Int) {
-        buttons[selectedIndex].background = getDrawable(R.drawable.button_selector)
-        selectedIndex = index
-        buttons[selectedIndex].background = getDrawable(R.drawable.button_selector)
-        headerTextView.text = customLabels.getOrNull(index) ?: ""
-        buttons[selectedIndex].requestFocus()
-    }
 
-    private fun launchApp(packageName: String) {
-        val intent = packageManager.getLaunchIntentForPackage(packageName)
-        if (intent != null) {
-            intent.putExtra("from_sub_activity", true)
-            startActivity(intent)
-            overridePendingTransition(0, 0)
+    private fun updateHeader(index: Int) {
+        val intentUri = prefs.getString("intent_$index", null)
+        if (intentUri != null) {
+            try {
+                val intent = Intent.parseUri(intentUri, 0)
+                val pkg = intent.`package`
+                if (pkg != null) {
+                    val appName = packageManager.getApplicationLabel(
+                        packageManager.getApplicationInfo(pkg, 0)
+                    ).toString()
+                    headerTextView.text = appName
+                } else {
+                    headerTextView.text = ""
+                }
+            } catch (e: Exception) {
+                headerTextView.text = ""
+            }
         } else {
-            Toast.makeText(this, "Не удалось открыть приложение", Toast.LENGTH_SHORT).show()
+            headerTextView.text = ""
         }
+    }
+
+    private fun showAppChooserDialog(index: Int) {
+        val pm = packageManager
+        val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+            .filter { pm.getLaunchIntentForPackage(it.packageName) != null && it.packageName != packageName }
+            .sortedBy { pm.getApplicationLabel(it).toString() }
+
+        val labels = apps.map { pm.getApplicationLabel(it).toString() }.toTypedArray()
+        val pkgs = apps.map { it.packageName }
+
+        AlertDialog.Builder(this)
+            .setTitle("Выберите приложение")
+            .setItems(labels) { _, which ->
+                val intent = pm.getLaunchIntentForPackage(pkgs[which])
+                if (intent != null) {
+                    val icon = pm.getApplicationIcon(pkgs[which])
+                    prefs.edit()
+                        .putString("intent_$index", intent.toUri(0))
+                        .putString("icon_$index", iconToBase64(icon))
+                        .apply()
+                    buttons[index].setImageDrawable(icon)
+                    updateHeader(index)
+                }
+            }
+            .setOnDismissListener { isAppDialogShowing = false }
+            .setNegativeButton("Отмена", null)
+            .show()
+    }
+
+    private fun showRemoveDialog(index: Int) {
+        if (prefs.contains("intent_$index")) {
+            AlertDialog.Builder(this)
+                .setTitle("Удалить?")
+                .setMessage("Удалить назначение с плитки?")
+                .setPositiveButton("Удалить") { _, _ ->
+                    prefs.edit()
+                        .remove("intent_$index")
+                        .remove("icon_$index")
+                        .apply()
+                    buttons[index].setImageDrawable(null)
+                    headerTextView.text = ""
+                }
+                .setNegativeButton("Отмена", null)
+                .setOnDismissListener { isRemoveDialogShowing = false }
+                .show()
+        } else {
+            Toast.makeText(this, "Ничего не назначено", Toast.LENGTH_SHORT).show()
+            isRemoveDialogShowing = false
+        }
+    }
+
+    private fun loadIcon(index: Int) {
+        val base64 = prefs.getString("icon_$index", null)
+        if (base64 != null) {
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+            val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            buttons[index].setImageDrawable(BitmapDrawable(resources, bitmap))
+        } else {
+            buttons[index].setImageDrawable(null)
+        }
+    }
+
+    private fun iconToBase64(drawable: Drawable?): String? {
+        if (drawable == null) return null
+        val bitmap = when (drawable) {
+            is BitmapDrawable -> drawable.bitmap
+            else -> {
+                val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 100
+                val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 100
+                val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
+                drawable.setBounds(0, 0, width, height)
+                drawable.draw(canvas)
+                bmp
+            }
+        }
+        val stream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+        return Base64.encodeToString(stream.toByteArray(), Base64.DEFAULT)
     }
 
     private fun hideSystemUI() {
         window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_FULLSCREEN
-                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 )
     }
 }
