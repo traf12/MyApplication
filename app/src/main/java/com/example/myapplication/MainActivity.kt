@@ -376,18 +376,26 @@ class MainActivity : Activity() {
         batteryStatus?.let {
             val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            val status = it.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                    status == BatteryManager.BATTERY_STATUS_FULL
+
             val batteryPct = (level / scale.toFloat() * 100).toInt()
 
             val batteryIconRes = when {
-                batteryPct >= 90 -> R.drawable.battery10
-                batteryPct >= 80 -> R.drawable.battery9
-                batteryPct >= 70 -> R.drawable.battery8
-                batteryPct >= 60 -> R.drawable.battery7
-                batteryPct >= 50 -> R.drawable.battery6
-                batteryPct >= 40 -> R.drawable.battery4
-                batteryPct >= 30 -> R.drawable.battery3
-                batteryPct >= 20 -> R.drawable.battery2
-                batteryPct >= 10 -> R.drawable.battery1
+                isCharging && batteryPct >= 100 -> R.drawable.battery12
+                isCharging && batteryPct < 100  -> R.drawable.battery11
+                batteryPct < 5   -> R.drawable.battery0
+                batteryPct < 10  -> R.drawable.battery1
+                batteryPct < 20  -> R.drawable.battery2
+                batteryPct < 30  -> R.drawable.battery3
+                batteryPct < 40  -> R.drawable.battery4
+                batteryPct < 50  -> R.drawable.battery5
+                batteryPct < 60  -> R.drawable.battery6
+                batteryPct < 70  -> R.drawable.battery7
+                batteryPct < 80  -> R.drawable.battery8
+                batteryPct < 90  -> R.drawable.battery9
+                batteryPct <= 100 -> R.drawable.battery10
                 else -> R.drawable.battery0
             }
 
@@ -409,6 +417,7 @@ class MainActivity : Activity() {
 
         networkIcon.setImageResource(networkIconRes)
     }
+
 
     private fun lockScreenUsingDevicePolicy() {
         if (::devicePolicyManager.isInitialized && devicePolicyManager.isAdminActive(componentName)) {
