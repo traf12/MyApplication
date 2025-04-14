@@ -80,13 +80,18 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+        <!-- локскрин -->
 
+        <activity android:name=".LockScreenActivity"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:exported="false" />
 
         <!-- Основная активность (лаунчер) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:clearTaskOnLaunch="true"
             android:excludeFromRecents="true"
             android:taskAffinity=""

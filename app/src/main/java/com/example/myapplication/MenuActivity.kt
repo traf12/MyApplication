@@ -20,12 +20,7 @@ class MenuActivity : Activity() {
 
     private val handler = Handler(Looper.getMainLooper())
 
-    private var isBackHandled = false
-    private var isCenterHandled = false
-    private var wasBackLongPress = false
-    private var wasCenterLongPress = false
-
-    private val HOLD_THRESHOLD = 1500L
+    private var selectedIndex = 0
 
     private val customIcons = listOf(
         R.drawable.ic_slot1, // Звонки
@@ -54,16 +49,14 @@ class MenuActivity : Activity() {
     private val predefinedPackages = listOf(
         "com.android.dialer",              // Звонки
         "com.android.contacts",            // Контакты
-        "com.google.android.clock",    // Часы
+        "com.google.android.clock",        // Часы
         "com.android.fmradio",             // Радио
         "com.android.mms",                 // СМС
-        "com.android.calculator",         // Калькулятор
+        "com.android.calculator",          // Калькулятор
         "com.android.settings",            // Настройки
         "com.android.calendar",            // Календарь
         "com.android.stk"                  // SIM-меню
     )
-
-    private var selectedIndex = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -134,6 +127,7 @@ class MenuActivity : Activity() {
             KeyEvent.KEYCODE_BACK -> {
                 val intent = Intent(this, MainActivity::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                intent.putExtra("from_sub_activity", true)
                 startActivity(intent)
                 overridePendingTransition(0, 0)
                 finish()
@@ -154,6 +148,7 @@ class MenuActivity : Activity() {
     private fun launchApp(packageName: String) {
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
+            intent.putExtra("from_sub_activity", true)
             startActivity(intent)
             overridePendingTransition(0, 0)
         } else {

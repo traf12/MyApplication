@@ -62,6 +62,7 @@ class AllAppsActivity : Activity() {
             val selectedApp = appItems[position]
             val launchIntent = packageManager.getLaunchIntentForPackage(selectedApp.packageName)
             if (launchIntent != null) {
+                launchIntent.putExtra("from_sub_activity", true)
                 startActivity(launchIntent)
             } else {
                 Toast.makeText(this, "Невозможно запустить ${selectedApp.label}", Toast.LENGTH_SHORT).show()

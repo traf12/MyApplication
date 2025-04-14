@@ -1,5 +1,6 @@
 package com.example.myapplication
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.*
@@ -29,6 +30,7 @@ class MainActivity : Activity() {
     private lateinit var audioManager: AudioManager
     private lateinit var mediaSessionManager: MediaSessionManager
     private var mediaController: MediaController? = null
+    private var lastResumeTime: Long = 0
 
     private lateinit var trackTitle: TextView
     private lateinit var trackArtist: TextView
@@ -37,6 +39,7 @@ class MainActivity : Activity() {
     private lateinit var unlockHint: TextView
     private lateinit var menuLabel: TextView
     private lateinit var contactsLabel: TextView
+    private var homePressedReceiver: BroadcastReceiver? = null
 
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var componentName: ComponentName
@@ -53,6 +56,7 @@ class MainActivity : Activity() {
     private var centerPressed = false
     private var isKey7Handled = false
     private var isLeavingToSubActivity = false
+    private var wasUnlockedFromLockScreen = false
 
     private val autoLockHandler = Handler(Looper.getMainLooper())
     private val autoLockRunnable = Runnable {
@@ -76,10 +80,13 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isLeavingToSubActivity = intent?.getBooleanExtra("from_sub_activity", false) == true
 
         if (!isNotificationServiceEnabled(this)) {
             startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
         }
+
+        wasUnlockedFromLockScreen = intent?.getBooleanExtra("unlocked", false) == true
 
         setContentView(R.layout.activity_main)
 
@@ -139,18 +146,52 @@ class MainActivity : Activity() {
         resetAutoLockTimer()
     }
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onResume() {
         super.onResume()
         isLeavingToSubActivity = false
+        wasUnlockedFromLockScreen = false
+        lastResumeTime = System.currentTimeMillis()
         resetAutoLockTimer()
+
+        homePressedReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_CLOSE_SYSTEM_DIALOGS) {
+                    val reason = intent.getStringExtra("reason")
+                    if (reason == "homekey") {
+                        if (!isKeypadLocked) {
+                            isKeypadLocked = true
+                            centerPressed = false
+                            showLockUI("Нажмите OK для разблокировки")
+                        } else {
+                            lockScreenUsingDevicePolicy()
+                        }
+                    }
+                }
+            }
+        }
+        registerReceiver(homePressedReceiver, IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS))
+
     }
 
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (!isLeavingToSubActivity && isKeypadLocked) {
-            lockScreenUsingDevicePolicy()
+
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        wasUnlockedFromLockScreen = intent?.getBooleanExtra("unlocked", false) == true
+    }
+
+
+    override fun onPause() {
+        super.onPause()
+        homePressedReceiver?.let {
+            unregisterReceiver(it)
+            homePressedReceiver = null
         }
     }
+
+
+
 
     private fun resetAutoLockTimer() {
         autoLockHandler.removeCallbacks(autoLockRunnable)
@@ -165,13 +206,12 @@ class MainActivity : Activity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val isMusicPlaying = mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
 
-        if (isKeypadLocked &&
-            (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME)) {
-
-            screenOffHandler.removeCallbacksAndMessages(null)
-            screenOffHandler.postDelayed({
-                lockScreenUsingDevicePolicy()
-            }, 0) // Можно поставить задержку, например 1500
+        if (isKeypadLocked && keyCode == KeyEvent.KEYCODE_HOME) {
+            val intent = Intent(this, LockScreenActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+            startActivity(intent)
+            return true
         }
 
         if (keyCode == KeyEvent.KEYCODE_BACK ||
@@ -181,12 +221,16 @@ class MainActivity : Activity() {
             isKeypadLocked = true
             centerPressed = false
             showLockUI("Нажмите OK для разблокировки")
+
+            // Немедленная блокировка экрана
+            lockScreenUsingDevicePolicy()
+
             return true
         }
 
+
         if (isKeypadLocked) {
             return when (keyCode) {
-
                 KeyEvent.KEYCODE_DPAD_CENTER -> {
                     centerPressed = true
                     showLockUI("Нажмите *")
@@ -194,7 +238,6 @@ class MainActivity : Activity() {
                     retryHintHandler.postDelayed(retryHintRunnable, 5000)
                     true
                 }
-
                 KeyEvent.KEYCODE_STAR -> {
                     if (centerPressed) {
                         isKeypadLocked = false
@@ -225,13 +268,11 @@ class MainActivity : Activity() {
 
         resetAutoLockTimer()
 
-
         return when (keyCode) {
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SOFT_LEFT -> {
                 isLeavingToSubActivity = true
                 startActivity(Intent(this, MenuActivity::class.java)); true
             }
-
             KeyEvent.KEYCODE_7 -> {
                 if (!isKey7Handled) {
                     isKey7Handled = true
@@ -278,6 +319,7 @@ class MainActivity : Activity() {
         val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
         return flat?.contains(cn.flattenToString()) == true
     }
+
     @Suppress("DEPRECATION")
     private fun hideSystemUI() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -289,10 +331,10 @@ class MainActivity : Activity() {
         } else {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            )
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                            View.SYSTEM_UI_FLAG_FULLSCREEN or
+                            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    )
         }
     }
 
@@ -328,6 +370,7 @@ class MainActivity : Activity() {
 
         handler.post(runnable)
     }
+
     private fun updateBatteryAndNetwork() {
         val batteryStatus = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         batteryStatus?.let {
