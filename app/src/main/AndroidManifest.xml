@@ -71,6 +71,7 @@
             </intent-filter>
         </service>
 
+
         <!-- Служба уведомлений для получения медиа-инфо -->
         <service
             android:name=".MediaNotificationListener"

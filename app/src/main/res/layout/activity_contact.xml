@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="#000000"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Левая софт-клавиша -->
+    <TextView
+        android:id="@+id/menuLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Опции"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:layout_margin="16dp"
+        android:background="?android:attr/activatedBackgroundIndicator"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:importantForAccessibility="yes" /> <!-- Добавлено для доступности -->
+
+    <!-- Правая софт-клавиша -->
+    <TextView
+        android:id="@+id/contactsLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Назад"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_margin="16dp"
+        android:background="?android:attr/activatedBackgroundIndicator"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:importantForAccessibility="yes" /> <!-- Добавлено для доступности -->
+
+    <!-- Список контактов -->
+    <ListView
+        android:id="@+id/contactListView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@+id/menuLabel"
+        android:divider="@android:color/darker_gray"
+        android:dividerHeight="1dp"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:choiceMode="singleChoice"
+        android:drawSelectorOnTop="true"
+        android:cacheColorHint="#000000"
+        android:listSelector="@drawable/list_selector"
+        android:importantForAccessibility="yes" /> <!-- Добавлено для доступности -->
+
+    <!-- Всплывающая буква -->
+    <TextView
+        android:id="@+id/letterPopup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="48sp"
+        android:textColor="@android:color/white"
+        android:background="@android:color/black"
+        android:visibility="gone"
+        android:padding="32dp"
+        android:layout_centerInParent="true"
+        android:textAlignment="center" />
+</RelativeLayout>

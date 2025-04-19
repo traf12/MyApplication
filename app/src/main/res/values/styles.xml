@@ -14,4 +14,19 @@
         <item name="colorSurface">#111111</item>
         <item name="colorOnSurface">#FFFFFF</item>
     </style>
+    <style name="DarkDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="android:background">#111111</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="titleTextColor">#FFFFFF</item>
+    </style>
+    <style name="MenuItemStyle" parent="Widget.AppCompat.TextView">
+        <item name="android:focusable">true</item>
+        <item name="android:focusableInTouchMode">true</item>
+        <item name="android:background">@drawable/focus_background</item> <!-- Здесь фокус будет виден -->
+        <item name="android:textColor">@android:color/white</item>
+    </style>
+
+
+
+
 </resources>
