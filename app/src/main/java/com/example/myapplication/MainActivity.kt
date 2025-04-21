@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.*
+import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaController
@@ -18,11 +19,12 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : Activity() {
-
 
     private lateinit var timeView: TextView
     private lateinit var dateView: TextView
@@ -59,12 +61,16 @@ class MainActivity : Activity() {
     private var isLeavingToSubActivity = false
     private var wasUnlockedFromLockScreen = false
 
+
     private val autoLockHandler = Handler(Looper.getMainLooper())
     private val autoLockRunnable = Runnable {
-        isKeypadLocked = true
-        centerPressed = false
-        showLockUI("Нажмите OK для разблокировки")
+        if (!isKeypadLocked) {
+            isKeypadLocked = true
+            centerPressed = false
+            showLockUI("Нажмите OK для разблокировки")
+        }
     }
+
 
     private val screenOffRunnable = Runnable {
         if (isKeypadLocked) {
@@ -79,8 +85,28 @@ class MainActivity : Activity() {
         }
     }
 
+    private val permissions = arrayOf(
+        android.Manifest.permission.BIND_DEVICE_ADMIN,
+        android.Manifest.permission.WRITE_SETTINGS,
+        android.Manifest.permission.READ_PHONE_STATE,
+        android.Manifest.permission.PROCESS_OUTGOING_CALLS,
+        android.Manifest.permission.DISABLE_KEYGUARD,
+        android.Manifest.permission.RECEIVE_BOOT_COMPLETED,
+        android.Manifest.permission.QUERY_ALL_PACKAGES,
+        android.Manifest.permission.VIBRATE,
+        android.Manifest.permission.WAKE_LOCK,
+        android.Manifest.permission.MEDIA_CONTENT_CONTROL,
+        android.Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE,
+        android.Manifest.permission.READ_CONTACTS,
+        android.Manifest.permission.WRITE_CONTACTS
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Проверка разрешений
+        checkPermissions()
+
         isLeavingToSubActivity = intent?.getBooleanExtra("from_sub_activity", false) == true
 
         if (!isNotificationServiceEnabled(this)) {
@@ -142,6 +168,32 @@ class MainActivity : Activity() {
         })
     }
 
+    // Новый метод для проверки разрешений
+    private fun checkPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        for (permission in permissions) {
+            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(permission)
+            }
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, permissionsToRequest.toTypedArray(), 123)
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 123) {
+            // Логика на случай, если разрешения не предоставлены
+            if (grantResults.any { it == PackageManager.PERMISSION_DENIED }) {
+                // Если какие-то разрешения не были предоставлены, можно показать уведомление или что-то сделать
+                // например, попросить пользователя предоставить разрешения
+            }
+        }
+    }
+
     override fun onUserInteraction() {
         super.onUserInteraction()
         resetAutoLockTimer()
@@ -181,6 +233,8 @@ class MainActivity : Activity() {
 
     override fun onPause() {
         super.onPause()
+        screenOffHandler.removeCallbacks(screenOffRunnable)
+
         homePressedReceiver?.let {
             unregisterReceiver(it)
             homePressedReceiver = null
@@ -192,10 +246,12 @@ class MainActivity : Activity() {
         autoLockHandler.postDelayed(autoLockRunnable, autoLockTimeout)
 
         screenOffHandler.removeCallbacks(screenOffRunnable)
+
         if (isKeypadLocked) {
             screenOffHandler.postDelayed(screenOffRunnable, screenOffTimeout)
         }
     }
+
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val isMusicPlaying = mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
@@ -251,11 +307,14 @@ class MainActivity : Activity() {
                     true
                 }
                 KeyEvent.KEYCODE_HOME -> {
-                    val intent = Intent(this, LockScreenActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    if (isKeypadLocked) {
+                        lockScreenUsingDevicePolicy()
+                    } else {
+                        isKeypadLocked = true
+                        centerPressed = false
+                        showLockUI("Нажмите OK для разблокировки")
                     }
-                    startActivity(intent)
-                    true
+                    return true
                 }
                 else -> true
             }
