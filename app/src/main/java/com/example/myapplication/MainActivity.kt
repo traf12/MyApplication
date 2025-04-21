@@ -171,16 +171,12 @@ class MainActivity : Activity() {
             }
         }
         registerReceiver(homePressedReceiver, IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS))
-
     }
-
-
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         wasUnlockedFromLockScreen = intent?.getBooleanExtra("unlocked", false) == true
     }
-
 
     override fun onPause() {
         super.onPause()
@@ -189,9 +185,6 @@ class MainActivity : Activity() {
             homePressedReceiver = null
         }
     }
-
-
-
 
     private fun resetAutoLockTimer() {
         autoLockHandler.removeCallbacks(autoLockRunnable)
@@ -257,7 +250,6 @@ class MainActivity : Activity() {
                     true
                 }
                 KeyEvent.KEYCODE_HOME -> {
-                    // Повторная защита от HOME
                     val intent = Intent(this, LockScreenActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     }
@@ -268,7 +260,6 @@ class MainActivity : Activity() {
             }
         }
 
-        // === Разблокированное состояние ===
         resetAutoLockTimer()
 
         return when (keyCode) {
@@ -299,8 +290,6 @@ class MainActivity : Activity() {
             else -> super.onKeyDown(keyCode, event)
         }
     }
-
-
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_7) {
@@ -431,7 +420,6 @@ class MainActivity : Activity() {
 
         networkIcon.setImageResource(networkIconRes)
     }
-
 
     private fun lockScreenUsingDevicePolicy() {
         if (::devicePolicyManager.isInitialized && devicePolicyManager.isAdminActive(componentName)) {

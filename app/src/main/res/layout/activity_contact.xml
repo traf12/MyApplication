@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootLayout"
     android:background="#000000"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Левая софт-клавиша -->
+    <!-- Софт-клавиши как обычный текст, не фокусируемые -->
     <TextView
         android:id="@+id/menuLabel"
         android:layout_width="wrap_content"
@@ -15,12 +16,9 @@
         android:layout_alignParentBottom="true"
         android:layout_alignParentStart="true"
         android:layout_margin="16dp"
-        android:background="?android:attr/activatedBackgroundIndicator"
-        android:focusable="true"
-        android:focusableInTouchMode="true"
-        android:importantForAccessibility="yes" /> <!-- Добавлено для доступности -->
+        android:focusable="false"
+        android:focusableInTouchMode="false" />
 
-    <!-- Правая софт-клавиша -->
     <TextView
         android:id="@+id/contactsLabel"
         android:layout_width="wrap_content"
@@ -31,10 +29,8 @@
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:layout_margin="16dp"
-        android:background="?android:attr/activatedBackgroundIndicator"
-        android:focusable="true"
-        android:focusableInTouchMode="true"
-        android:importantForAccessibility="yes" /> <!-- Добавлено для доступности -->
+        android:focusable="false"
+        android:focusableInTouchMode="false" />
 
     <!-- Список контактов -->
     <ListView
@@ -44,13 +40,11 @@
         android:layout_above="@+id/menuLabel"
         android:divider="@android:color/darker_gray"
         android:dividerHeight="1dp"
-        android:focusable="true"
-        android:focusableInTouchMode="true"
         android:choiceMode="singleChoice"
         android:drawSelectorOnTop="true"
         android:cacheColorHint="#000000"
         android:listSelector="@drawable/list_selector"
-        android:importantForAccessibility="yes" /> <!-- Добавлено для доступности -->
+        android:importantForAccessibility="yes" />
 
     <!-- Всплывающая буква -->
     <TextView
