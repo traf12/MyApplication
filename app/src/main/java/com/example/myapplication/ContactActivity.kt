@@ -350,5 +350,6 @@ class ContactActivity : AppCompatActivity() {
             }
             else -> super.onKeyDown(keyCode, event)
         }
+
     }
 }
