@@ -23,6 +23,7 @@ import java.util.*
 
 class MainActivity : Activity() {
 
+
     private lateinit var timeView: TextView
     private lateinit var dateView: TextView
     private lateinit var batteryIcon: ImageView
