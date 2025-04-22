@@ -1,5 +1,6 @@
 package com.example.myapplication
 
+import MediaUpdateReceiver
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.admin.DevicePolicyManager
@@ -12,6 +13,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.*
 import android.provider.Settings
+import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
 import android.view.KeyEvent
 import android.view.View
@@ -23,6 +25,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.*
+
 
 class MainActivity : Activity() {
 
@@ -46,6 +49,8 @@ class MainActivity : Activity() {
 
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var componentName: ComponentName
+    private lateinit var mediaUpdateReceiver: MediaUpdateReceiver
+
 
     private val handler = Handler(Looper.getMainLooper())
     private val retryHintHandler = Handler(Looper.getMainLooper())
@@ -60,6 +65,43 @@ class MainActivity : Activity() {
     private var isKey7Handled = false
     private var isLeavingToSubActivity = false
     private var wasUnlockedFromLockScreen = false
+
+    private val timeHandler = Handler(Looper.getMainLooper())
+    private val timeRunnable = object : Runnable {
+        override fun run() {
+            val now = Calendar.getInstance().time
+            timeView.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
+            dateView.text = SimpleDateFormat("dd MMMM, EEEE", Locale.getDefault()).format(now)
+            val delay = 60_000 - (System.currentTimeMillis() % 60_000)
+            timeHandler.postDelayed(this, delay)
+        }
+    }
+
+
+
+
+    private val mediaCallback = object : MediaController.Callback() {
+        override fun onMetadataChanged(metadata: MediaMetadata?) {
+            updateTrackInfo()
+        }
+
+        override fun onPlaybackStateChanged(state: PlaybackState?) {
+            updateTrackInfo()
+        }
+    }
+
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            updateBatteryIcon(intent)
+        }
+    }
+
+    private val phoneStateListener = object : PhoneStateListener() {
+        override fun onSignalStrengthsChanged(signalStrength: android.telephony.SignalStrength?) {
+            super.onSignalStrengthsChanged(signalStrength)
+            updateNetworkIcon(signalStrength)
+        }
+    }
 
 
     private val autoLockHandler = Handler(Looper.getMainLooper())
@@ -144,28 +186,15 @@ class MainActivity : Activity() {
         }
 
         mediaController = MediaControllerManager.mediaController
+        mediaController?.registerCallback(mediaCallback)
         updateTrackInfo()
         updateTime()
-        updateBatteryAndNetwork()
 
         hideSystemUI()
         showLockUI("Нажмите OK для разблокировки")
         resetAutoLockTimer()
 
-        handler.post(object : Runnable {
-            override fun run() {
-                mediaController = MediaControllerManager.mediaController
-                updateTrackInfo()
-                handler.postDelayed(this, 5000)
-            }
-        })
 
-        handler.post(object : Runnable {
-            override fun run() {
-                updateBatteryAndNetwork()
-                handler.postDelayed(this, 10000)
-            }
-        })
     }
 
     // Новый метод для проверки разрешений
@@ -206,6 +235,19 @@ class MainActivity : Activity() {
         wasUnlockedFromLockScreen = false
         lastResumeTime = System.currentTimeMillis()
         resetAutoLockTimer()
+        updateTrackInfo()
+        updateTime()
+
+        mediaController = MediaControllerManager.mediaController
+        mediaController?.registerCallback(mediaCallback)
+
+        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+        telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS)
+
+        mediaUpdateReceiver = MediaUpdateReceiver(trackTitle, trackArtist)
+        val filter = IntentFilter("com.example.myapplication.MEDIA_CONTROLLER_UPDATED")
+        registerReceiver(mediaUpdateReceiver, filter)
 
         homePressedReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
@@ -223,8 +265,10 @@ class MainActivity : Activity() {
                 }
             }
         }
-        registerReceiver(homePressedReceiver, IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS))
-    }
+        registerReceiver(homePressedReceiver, IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+        })    }
+
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
@@ -235,11 +279,22 @@ class MainActivity : Activity() {
         super.onPause()
         screenOffHandler.removeCallbacks(screenOffRunnable)
 
+        timeHandler.removeCallbacks(timeRunnable)
+        unregisterReceiver(mediaUpdateReceiver)
+
+
+        mediaController?.unregisterCallback(mediaCallback)
+
+        unregisterReceiver(batteryReceiver)
+        val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+        telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
+
         homePressedReceiver?.let {
             unregisterReceiver(it)
             homePressedReceiver = null
         }
     }
+
 
     private fun resetAutoLockTimer() {
         autoLockHandler.removeCallbacks(autoLockRunnable)
@@ -406,8 +461,8 @@ class MainActivity : Activity() {
         val playbackState = mediaController?.playbackState
 
         if (metadata != null && playbackState?.state == PlaybackState.STATE_PLAYING) {
-            trackTitle.text = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
-            trackArtist.text = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
+            trackTitle.text = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "No Title"
+            trackArtist.text = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: "No Artist"
             trackTitle.visibility = View.VISIBLE
             trackArtist.visibility = View.VISIBLE
         } else {
@@ -416,27 +471,14 @@ class MainActivity : Activity() {
         }
     }
 
+
     private fun updateTime() {
-        val formatTime = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val formatDate = SimpleDateFormat("dd MMMM, EEEE", Locale.getDefault())
-        val handler = Handler(Looper.getMainLooper())
-
-        val runnable = object : Runnable {
-            override fun run() {
-                val now = Calendar.getInstance().time
-                timeView.text = formatTime.format(now)
-                dateView.text = formatDate.format(now)
-                val delay = 60_000 - (System.currentTimeMillis() % 60_000)
-                handler.postDelayed(this, delay)
-            }
-        }
-
-        handler.post(runnable)
+        timeHandler.post(timeRunnable)
     }
 
-    private fun updateBatteryAndNetwork() {
-        val batteryStatus = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        batteryStatus?.let {
+
+    private fun updateBatteryIcon(intent: Intent?) {
+        intent?.let {
             val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
             val status = it.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
@@ -464,11 +506,10 @@ class MainActivity : Activity() {
 
             batteryIcon.setImageResource(batteryIconRes)
         }
+    }
 
-        val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
-        val signal = telephonyManager.signalStrength
+    private fun updateNetworkIcon(signal: android.telephony.SignalStrength?) {
         val level = signal?.level ?: 0
-
         val networkIconRes = when (level) {
             0 -> R.drawable.signal1
             1 -> R.drawable.signal2
@@ -477,7 +518,6 @@ class MainActivity : Activity() {
             4 -> R.drawable.signal5
             else -> R.drawable.signal1
         }
-
         networkIcon.setImageResource(networkIconRes)
     }
 
