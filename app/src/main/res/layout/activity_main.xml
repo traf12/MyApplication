@@ -44,9 +44,9 @@
         android:layout_centerHorizontal="true"
         android:layout_marginTop="100dp" />
 
-    <!-- Дата -->
+    <!-- День недели -->
     <TextView
-        android:id="@+id/dateView"
+        android:id="@+id/dayOfWeekView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="24sp"
@@ -55,6 +55,16 @@
         android:layout_centerHorizontal="true"
         android:layout_marginTop="8dp" />
 
+    <!-- Дата -->
+    <TextView
+        android:id="@+id/dateView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="24sp"
+        android:textColor="@android:color/white"
+        android:layout_below="@id/dayOfWeekView"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="8dp" />
 
     <!-- Затемнение -->
     <View
@@ -110,6 +120,7 @@
         android:layout_centerHorizontal="true"
         android:layout_marginTop="40dp"
         android:visibility="gone" />
+
     <!-- Левая софт-клавиша -->
     <TextView
         android:id="@+id/menuLabel"

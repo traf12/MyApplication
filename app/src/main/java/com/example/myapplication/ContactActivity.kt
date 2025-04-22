@@ -1,7 +1,9 @@
 package com.example.myapplication
 
+import android.Manifest
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -14,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.view.setPadding
 
 class ContactActivity : AppCompatActivity() {
@@ -99,29 +102,6 @@ class ContactActivity : AppCompatActivity() {
         }
     }
 
-
-    private fun filterContactsByT9Input(input: String) {
-        filteredContacts = contacts.filter {
-            it.first.lowercase().startsWith(input) || it.second.startsWith(input)
-        }.toMutableList()
-        updateList()
-    }
-
-    private fun showT9Popup(char: String) {
-        val popup = findViewById<TextView>(R.id.letterPopup)
-        popup.text = char
-        popup.visibility = View.VISIBLE
-
-        t9Runnable?.let { t9Handler.removeCallbacks(it) }
-        t9Runnable = Runnable {
-            popup.visibility = View.GONE
-            currentKey = -1
-            currentIndex = 0
-        }.also {
-            t9Handler.postDelayed(it, 2000)
-        }
-    }
-
     private fun openContactCard(contact: Pair<String, String>) {
         val (name, number) = contact
 
@@ -151,6 +131,22 @@ class ContactActivity : AppCompatActivity() {
                 }
             }
 
+            val callButton = Button(this@ContactActivity).apply {
+                text = "Позвонить"
+                isFocusableInTouchMode = true
+                setOnClickListener {
+                    if (ActivityCompat.checkSelfPermission(
+                            this@ContactActivity, Manifest.permission.CALL_PHONE
+                        ) != PackageManager.PERMISSION_GRANTED) {
+                        ActivityCompat.requestPermissions(
+                            this@ContactActivity, arrayOf(Manifest.permission.CALL_PHONE), 1
+                        )
+                    } else {
+                        startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")))
+                    }
+                }
+            }
+
             addView(TextView(this@ContactActivity).apply {
                 text = "Имя: $name"
                 textSize = 20f
@@ -162,14 +158,10 @@ class ContactActivity : AppCompatActivity() {
                 setTextColor(Color.WHITE)
             })
             addView(editButton)
-            addView(Button(this@ContactActivity).apply {
-                text = "Позвонить"
-                setOnClickListener {
-                    startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")))
-                }
-            })
+            addView(callButton)
             addView(Button(this@ContactActivity).apply {
                 text = "Сообщение"
+                isFocusableInTouchMode = true
                 setOnClickListener {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:$number")))
                 }
@@ -199,7 +191,7 @@ class ContactActivity : AppCompatActivity() {
     }
 
     private fun showOptionsMenu() {
-        val items = arrayOf("Добавить", "Удалить", "Источники", "Импорт/Экспорт")
+        val items = arrayOf("Добавить", "Удалить", "Импорт/Экспорт")
 
         val backgroundDrawable = GradientDrawable().apply {
             setColor(Color.BLACK)
@@ -243,8 +235,7 @@ class ContactActivity : AppCompatActivity() {
                                 Toast.makeText(this@ContactActivity, "Контакт не выбран", Toast.LENGTH_SHORT).show()
                             }
                         }
-                        2 -> showSourcesDialog()
-                        3 -> showImportExportDialog()
+                        2 -> showImportExportDialog()
                     }
                 }
             }
@@ -261,17 +252,6 @@ class ContactActivity : AppCompatActivity() {
         }
 
         dialog.show()
-    }
-
-    private fun showSourcesDialog() {
-        val sources = arrayOf("SIM", "Телефон", "Google")
-        val checked = booleanArrayOf(true, true, false)
-
-        AlertDialog.Builder(this, R.style.DarkDialog)
-            .setTitle("Источники")
-            .setMultiChoiceItems(sources, checked) { _, _, _ -> }
-            .setPositiveButton("OK", null)
-            .show()
     }
 
     private fun showImportExportDialog() {
@@ -304,6 +284,17 @@ class ContactActivity : AppCompatActivity() {
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
             WindowManager.LayoutParams.FLAG_FULLSCREEN
         )
+    }
+
+    // Функция для фильтрации контактов по вводу T9
+    private fun filterContactsByT9Input(input: String) {
+        filteredContacts = contacts.filter { it.first.contains(input, ignoreCase = true) }.toMutableList()
+        updateList()
+    }
+
+    // Функция для отображения всплывающего окна с T9 символом
+    private fun showT9Popup(char: String) {
+        Toast.makeText(this, "T9: $char", Toast.LENGTH_SHORT).show()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
@@ -350,6 +341,5 @@ class ContactActivity : AppCompatActivity() {
             }
             else -> super.onKeyDown(keyCode, event)
         }
-
     }
 }
