@@ -321,7 +321,6 @@ class MainActivity : Activity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val isMusicPlaying = mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
 
-        // === Блокировка при нажатии BACK, HOME, POWER, ENDCALL ===
         if (!isKeypadLocked && (keyCode == KeyEvent.KEYCODE_HOME ||
                     keyCode == KeyEvent.KEYCODE_POWER ||
                     keyCode == KeyEvent.KEYCODE_ENDCALL)) {
@@ -333,7 +332,6 @@ class MainActivity : Activity() {
             return true
         }
 
-        // === Обработка заблокированного состояния ===
         if (isKeypadLocked) {
             return when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_CENTER -> {
@@ -393,7 +391,6 @@ class MainActivity : Activity() {
                 startActivity(Intent(this, MenuActivity::class.java))
                 true
             }
-
             KeyEvent.KEYCODE_7 -> {
                 if (!isKey7Handled) {
                     isKey7Handled = true
@@ -405,13 +402,16 @@ class MainActivity : Activity() {
                 }
                 true
             }
-
             KeyEvent.KEYCODE_BACK -> {
                 isLeavingToSubActivity = true
                 startActivity(Intent(this, ContactActivity::class.java))
                 true
             }
-
+            KeyEvent.KEYCODE_CALL -> {
+                isLeavingToSubActivity = true
+                startActivity(Intent(this, CallLogActivity::class.java))
+                true
+            }
             else -> super.onKeyDown(keyCode, event)
         }
     }

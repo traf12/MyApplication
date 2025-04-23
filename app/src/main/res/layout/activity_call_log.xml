@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootLayout"
+    android:background="#000000"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Вкладки типов звонков -->
+    <LinearLayout
+        android:id="@+id/tabLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="4dp"
+        android:background="#111111"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/tabIncoming"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Входящие"
+            android:gravity="center"
+            android:textColor="#FFFFFF"
+            android:background="#333333"
+            android:textSize="16sp"
+            android:padding="8dp" />
+
+        <TextView
+            android:id="@+id/tabOutgoing"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Исходящие"
+            android:gravity="center"
+            android:textColor="#AAAAAA"
+            android:textSize="16sp"
+            android:padding="8dp" />
+
+        <TextView
+            android:id="@+id/tabMissed"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Пропущенные"
+            android:gravity="center"
+            android:textColor="#AAAAAA"
+            android:textSize="16sp"
+            android:padding="8dp" />
+
+        <TextView
+            android:id="@+id/tabRejected"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Отклонённые"
+            android:gravity="center"
+            android:textColor="#AAAAAA"
+            android:textSize="16sp"
+            android:padding="8dp" />
+    </LinearLayout>
+
+    <!-- Список звонков -->
+    <ListView
+        android:id="@+id/callList"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_below="@id/tabLayout"
+        android:layout_above="@+id/btnOptions"
+        android:divider="@android:color/darker_gray"
+        android:dividerHeight="1dp"
+        android:choiceMode="singleChoice"
+        android:drawSelectorOnTop="true"
+        android:cacheColorHint="#000000"
+        android:listSelector="@drawable/list_selector"
+        android:importantForAccessibility="yes" />
+
+    <!-- Кнопка "Опции" -->
+    <TextView
+        android:id="@+id/btnOptions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Опции"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:layout_margin="16dp"
+        android:focusable="false"
+        android:focusableInTouchMode="false" />
+
+    <!-- Кнопка "Назад" -->
+    <TextView
+        android:id="@+id/btnBack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Назад"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_margin="16dp"
+        android:focusable="false"
+        android:focusableInTouchMode="false" />
+
+    <!-- Кнопка "Вызов" по центру -->
+    <TextView
+        android:id="@+id/btnCall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Вызов"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="16dp"
+        android:focusable="false"
+        android:focusableInTouchMode="false" />
+</RelativeLayout>
