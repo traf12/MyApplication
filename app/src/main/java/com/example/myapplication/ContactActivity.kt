@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.ContactsContract
@@ -18,6 +19,10 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.setPadding
+import java.io.File
+import android.widget.Toast
+import androidx.core.content.FileProvider
+
 
 class ContactActivity : AppCompatActivity() {
 
@@ -37,16 +42,22 @@ class ContactActivity : AppCompatActivity() {
         KeyEvent.KEYCODE_9 to "ьэюя"
     )
 
+    private var confirmationDialog: AlertDialog? = null
+    private var dialogYesAction: (() -> Unit)? = null
+
     private var currentKey = -1
     private var currentIndex = 0
     private val t9Handler = Handler(Looper.getMainLooper())
     private var t9Runnable: Runnable? = null
+
+    private lateinit var letterPopup: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_contact)
 
         contactListView = findViewById(R.id.contactListView)
+        letterPopup = findViewById(R.id.letterPopup)
 
         loadContacts()
 
@@ -191,7 +202,7 @@ class ContactActivity : AppCompatActivity() {
     }
 
     private fun showOptionsMenu() {
-        val items = arrayOf("Добавить", "Удалить", "Импорт/Экспорт")
+        val items = arrayOf("Добавить", "Удалить", "Удалить все")
 
         val backgroundDrawable = GradientDrawable().apply {
             setColor(Color.BLACK)
@@ -206,12 +217,18 @@ class ContactActivity : AppCompatActivity() {
         }
 
         val textViews = mutableListOf<TextView>()
+        val menuLabel = findViewById<TextView>(R.id.menuLabel)
+        val backLabel = findViewById<TextView>(R.id.contactsLabel)
+
+        // Применяем белый цвет для текста кнопок "Да" и "Нет"
+        menuLabel.setTextColor(Color.WHITE)
+        backLabel.setTextColor(Color.WHITE)
 
         items.forEachIndexed { index, item ->
             val textView = TextView(this).apply {
                 text = item
                 textSize = 18f
-                setTextColor(Color.WHITE)
+                setTextColor(Color.WHITE)  // Белый цвет текста
                 setPadding(16, 16, 16, 16)
                 isFocusable = true
                 isFocusableInTouchMode = true
@@ -222,20 +239,21 @@ class ContactActivity : AppCompatActivity() {
                             type = ContactsContract.Contacts.CONTENT_TYPE
                         })
                         1 -> {
+                            menuLabel.text = "Да"
+                            backLabel.text = "Нет"
                             val pos = contactListView.selectedItemPosition
                             if (pos >= 0 && pos < filteredContacts.size) {
                                 val (name, _) = filteredContacts[pos]
-                                AlertDialog.Builder(this@ContactActivity, R.style.DarkDialog)
-                                    .setTitle("Удалить контакт?")
-                                    .setMessage("Вы уверены, что хотите удалить $name?")
-                                    .setPositiveButton("Да") { _, _ -> deleteContact(name) }
-                                    .setNegativeButton("Нет", null)
-                                    .show()
+                                confirmDeleteContact(name)
                             } else {
                                 Toast.makeText(this@ContactActivity, "Контакт не выбран", Toast.LENGTH_SHORT).show()
                             }
                         }
-                        2 -> showImportExportDialog()
+                        2 -> {
+                            menuLabel.text = "Да"
+                            backLabel.text = "Нет"
+                            confirmDeleteAllContacts()
+                        }
                     }
                 }
             }
@@ -251,28 +269,147 @@ class ContactActivity : AppCompatActivity() {
             textViews.firstOrNull()?.requestFocus()
         }
 
+        dialog.setOnDismissListener {
+            // После закрытия диалога восстанавливаем текст кнопок
+            menuLabel.text = "Опции"
+            backLabel.text = "Назад"
+        }
+
         dialog.show()
     }
 
-    private fun showImportExportDialog() {
-        AlertDialog.Builder(this, R.style.DarkDialog)
-            .setTitle("Импорт/Экспорт")
-            .setItems(arrayOf("Импорт с SIM", "Экспорт на SIM")) { _, which ->
-                when (which) {
-                    0 -> Toast.makeText(this, "Импорт с SIM пока не реализован", Toast.LENGTH_SHORT).show()
-                    1 -> Toast.makeText(this, "Экспорт на SIM пока не реализован", Toast.LENGTH_SHORT).show()
-                }
+    private fun confirmDeleteContact(name: String) {
+        val backgroundDrawable = GradientDrawable().apply {
+            setColor(Color.BLACK)
+            setStroke(4, Color.GRAY)
+            cornerRadius = 12f
+        }
+
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = backgroundDrawable
+            setPadding(32)
+
+            addView(TextView(this@ContactActivity).apply {
+                text = "Удалить контакт $name?"
+                textSize = 18f
+                setTextColor(Color.WHITE)
+                setPadding(16, 16, 16, 16)
+            })
+        }
+
+        // Явно устанавливаем белый цвет для кнопок "Да" и "Нет"
+        val menuLabel = findViewById<TextView>(R.id.menuLabel)
+        val backLabel = findViewById<TextView>(R.id.contactsLabel)
+        menuLabel.setTextColor(Color.WHITE)
+        backLabel.setTextColor(Color.WHITE)
+        menuLabel.text = "Да"
+        backLabel.text = "Нет"
+
+        confirmationDialog = AlertDialog.Builder(this, R.style.DarkDialog)
+            .setView(layout)
+            .create()
+
+        dialogYesAction = {
+            val id = getContactId(name)
+            if (id != null) {
+                val uri = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, id)
+                contentResolver.delete(uri, null, null)
+                Toast.makeText(this, "$name удалён", Toast.LENGTH_SHORT).show()
+                loadContacts()
             }
-            .setPositiveButton("OK", null)
-            .show()
+            confirmationDialog?.dismiss()
+        }
+
+        confirmationDialog?.setOnShowListener {
+            layout.requestFocus()
+
+            confirmationDialog?.setOnKeyListener { _, keyCode, _ ->
+                when (keyCode) {
+                    KeyEvent.KEYCODE_MENU -> {
+                        dialogYesAction?.invoke()
+                        return@setOnKeyListener true
+                    }
+                    KeyEvent.KEYCODE_BACK -> {
+                        confirmationDialog?.dismiss()
+                        return@setOnKeyListener true
+                    }
+                }
+                false
+            }
+        }
+
+        confirmationDialog?.setOnDismissListener {
+            menuLabel.text = "Опции"
+            backLabel.text = "Назад"
+        }
+
+        confirmationDialog?.show()
     }
 
-    private fun deleteContact(name: String) {
-        val id = getContactId(name) ?: return
-        val uri = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, id)
-        contentResolver.delete(uri, null, null)
-        Toast.makeText(this, "$name удалён", Toast.LENGTH_SHORT).show()
-        loadContacts()
+    private fun confirmDeleteAllContacts() {
+        val backgroundDrawable = GradientDrawable().apply {
+            setColor(Color.BLACK)
+            setStroke(4, Color.GRAY)
+            cornerRadius = 12f
+        }
+
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = backgroundDrawable
+            setPadding(32)
+
+            addView(TextView(this@ContactActivity).apply {
+                text = "Удалить все контакты?"
+                textSize = 18f
+                setTextColor(Color.WHITE)
+                setPadding(16, 16, 16, 16)
+            })
+        }
+
+        // Белые кнопки "Да" и "Нет"
+        val menuLabel = findViewById<TextView>(R.id.menuLabel)
+        val backLabel = findViewById<TextView>(R.id.contactsLabel)
+        menuLabel.setTextColor(Color.WHITE)
+        backLabel.setTextColor(Color.WHITE)
+        menuLabel.text = "Да"
+        backLabel.text = "Нет"
+
+        confirmationDialog = AlertDialog.Builder(this, R.style.DarkDialog)
+            .setView(layout)
+            .create()
+
+        dialogYesAction = {
+            contentResolver.delete(ContactsContract.Contacts.CONTENT_URI, null, null)
+            Toast.makeText(this, "Все контакты удалены", Toast.LENGTH_SHORT).show()
+            loadContacts()
+            confirmationDialog?.dismiss()
+        }
+
+        confirmationDialog?.setOnShowListener {
+            layout.requestFocus()
+
+            confirmationDialog?.setOnKeyListener { _, keyCode, _ ->
+                when (keyCode) {
+                    KeyEvent.KEYCODE_MENU -> {
+                        dialogYesAction?.invoke()
+                        return@setOnKeyListener true
+                    }
+                    KeyEvent.KEYCODE_BACK -> {
+                        confirmationDialog?.dismiss()
+                        return@setOnKeyListener true
+                    }
+                }
+                false
+            }
+        }
+
+        confirmationDialog?.setOnDismissListener {
+            menuLabel.text = "Опции"
+            backLabel.text = "Назад"
+        }
+
+        confirmationDialog?.show()
     }
 
     private fun disableTouchInput() {
@@ -286,60 +423,76 @@ class ContactActivity : AppCompatActivity() {
         )
     }
 
-    // Функция для фильтрации контактов по вводу T9
     private fun filterContactsByT9Input(input: String) {
-        filteredContacts = contacts.filter { it.first.contains(input, ignoreCase = true) }.toMutableList()
+        filteredContacts = contacts.filter {
+            it.first.firstOrNull()?.equals(input.firstOrNull() ?: ' ', ignoreCase = true) == true
+        }.toMutableList()
         updateList()
     }
 
-    // Функция для отображения всплывающего окна с T9 символом
+
     private fun showT9Popup(char: String) {
-        Toast.makeText(this, "T9: $char", Toast.LENGTH_SHORT).show()
+        letterPopup.text = char
+        letterPopup.visibility = View.VISIBLE
+        Handler(Looper.getMainLooper()).postDelayed({
+            letterPopup.visibility = View.GONE
+        }, 1000)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_CALL) {
+            val pos = contactListView.selectedItemPosition
+            if (pos >= 0 && pos < filteredContacts.size) {
+                val (_, number) = filteredContacts[pos]
+                if (ActivityCompat.checkSelfPermission(
+                        this, Manifest.permission.CALL_PHONE
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    ActivityCompat.requestPermissions(
+                        this, arrayOf(Manifest.permission.CALL_PHONE), 1
+                    )
+                } else {
+                    startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")))
+                }
+            } else {
+                Toast.makeText(this, "Контакт не выбран", Toast.LENGTH_SHORT).show()
+            }
+            return true
+        }
+
+        // Открытие меню по кнопке "Menu"
+        if (keyCode == KeyEvent.KEYCODE_MENU) {
+            showOptionsMenu()
+            return true
+        }
+
         if (t9Map.containsKey(keyCode)) {
-            if (keyCode == currentKey) {
-                currentIndex = (currentIndex + 1) % (t9Map[keyCode]?.length ?: 1)
+            val letters = t9Map[keyCode]!!
+            if (currentKey == keyCode) {
+                currentIndex = (currentIndex + 1) % letters.length
             } else {
                 currentKey = keyCode
                 currentIndex = 0
             }
-            val letters = t9Map[keyCode] ?: ""
-            val char = letters[currentIndex].toString()
-            filterContactsByT9Input(char)
-            showT9Popup(char)
+            val currentLetter = letters[currentIndex].toString()
+            showT9Popup(currentLetter)
+            filterContactsByT9Input(currentLetter)
             return true
         }
 
-        return when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_CENTER -> {
-                val pos = contactListView.selectedItemPosition
-                if (pos >= 0 && pos < filteredContacts.size) {
-                    openContactCard(filteredContacts[pos])
-                    true
-                } else false
+        if (confirmationDialog?.isShowing == true) {
+            when (keyCode) {
+                KeyEvent.KEYCODE_MENU -> {
+                    dialogYesAction?.invoke()
+                    return true
+                }
+                KeyEvent.KEYCODE_BACK -> {
+                    confirmationDialog?.dismiss()
+                    return true
+                }
             }
-            KeyEvent.KEYCODE_CALL -> {
-                val pos = contactListView.selectedItemPosition
-                if (pos >= 0 && pos < filteredContacts.size) {
-                    val number = filteredContacts[pos].second
-                    try {
-                        val intent = Intent(Intent.ACTION_CALL, Uri.parse("tel:$number"))
-                        startActivity(intent)
-                    } catch (e: SecurityException) {
-                        Toast.makeText(this, "Нет разрешения на звонок", Toast.LENGTH_SHORT).show()
-                    }
-                    true
-                } else false
-            }
-            KeyEvent.KEYCODE_SOFT_LEFT, KeyEvent.KEYCODE_MENU -> {
-                showOptionsMenu(); true
-            }
-            KeyEvent.KEYCODE_BACK -> {
-                finish(); true
-            }
-            else -> super.onKeyDown(keyCode, event)
         }
+
+        return super.onKeyDown(keyCode, event)
     }
 }

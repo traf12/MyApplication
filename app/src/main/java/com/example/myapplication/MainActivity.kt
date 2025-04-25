@@ -140,7 +140,8 @@ class MainActivity : Activity() {
         android.Manifest.permission.MEDIA_CONTENT_CONTROL,
         android.Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE,
         android.Manifest.permission.READ_CONTACTS,
-        android.Manifest.permission.WRITE_CONTACTS
+        android.Manifest.permission.WRITE_CONTACTS,
+        android.Manifest.permission.WRITE_CALL_LOG
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -244,8 +245,6 @@ class MainActivity : Activity() {
         updateTrackInfo()
         updateTime()
 
-
-
         mediaController = MediaControllerManager.mediaController
         mediaController?.registerCallback(mediaCallback)
 
@@ -264,12 +263,13 @@ class MainActivity : Activity() {
                 if (intent?.action == Intent.ACTION_CLOSE_SYSTEM_DIALOGS) {
                     val reason = intent.getStringExtra("reason")
                     if (reason == "homekey") {
+                        // Отключаем экран при нажатии HOME
+                        lockScreenUsingDevicePolicy()
+                        // Блокируем клавиатуру только после отключения экрана
                         if (!isKeypadLocked) {
                             isKeypadLocked = true
                             centerPressed = false
                             showLockUI("Нажмите OK для разблокировки")
-                        } else {
-                            lockScreenUsingDevicePolicy()
                         }
                     }
                 }
@@ -324,7 +324,7 @@ class MainActivity : Activity() {
         if (!isKeypadLocked && (keyCode == KeyEvent.KEYCODE_HOME ||
                     keyCode == KeyEvent.KEYCODE_POWER ||
                     keyCode == KeyEvent.KEYCODE_ENDCALL)) {
-
+            // При нажатии HOME, блокируем экран
             isKeypadLocked = true
             centerPressed = false
             showLockUI("Нажмите OK для разблокировки")

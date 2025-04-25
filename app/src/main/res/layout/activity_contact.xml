@@ -58,4 +58,63 @@
         android:padding="32dp"
         android:layout_centerInParent="true"
         android:textAlignment="center" />
+
+    <!-- Контейнер с кнопками и информацией о контакте -->
+    <LinearLayout
+        android:id="@+id/contactInfoLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:background="@android:color/black"
+        android:layout_centerInParent="true"
+        android:visibility="gone">
+
+        <!-- Имя контакта -->
+        <TextView
+            android:id="@+id/contactName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Имя: John Doe"
+            android:textColor="@android:color/white"
+            android:textSize="20sp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Номер контакта -->
+        <TextView
+            android:id="@+id/contactNumber"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Номер: +1234567890"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Кнопка "Редактировать" -->
+        <Button
+            android:id="@+id/editContactButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Редактировать"
+            android:textColor="@android:color/white"
+            android:background="@android:color/black" />
+
+        <!-- Кнопка "Позвонить" -->
+        <Button
+            android:id="@+id/callContactButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Позвонить"
+            android:textColor="@android:color/white"
+            android:background="@android:color/black" />
+
+        <!-- Кнопка "Сообщение" -->
+        <Button
+            android:id="@+id/messageContactButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Сообщение"
+            android:textColor="@android:color/white"
+            android:background="@android:color/black" />
+    </LinearLayout>
 </RelativeLayout>

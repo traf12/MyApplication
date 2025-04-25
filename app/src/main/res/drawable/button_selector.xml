@@ -1,4 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_focused="true" android:drawable="@drawable/button_selected_background" />
-    <item android:drawable="@drawable/default_button_background" />
+
+    <!-- Состояние фокуса -->
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#CCFFA500"/> <!-- Оранжевый с 80% прозрачности -->
+            <corners android:radius="24dp"/>
+            <stroke android:width="4dp" android:color="#FFA500"/> <!-- Яркая рамка -->
+        </shape>
+    </item>
+
+    <!-- Состояние по умолчанию -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent"/>
+            <corners android:radius="24dp"/>
+        </shape>
+    </item>
 </selector>
