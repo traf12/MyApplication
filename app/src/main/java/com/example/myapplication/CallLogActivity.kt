@@ -355,72 +355,101 @@ class CallLogActivity : Activity() {
     }
 
 
-    // Обновленный метод для отображения меню опций
 // Обновленный метод для отображения меню опций
-    private fun showOptionsMenu() {
-        val options = arrayOf("Удалить", "Удалить все")
+private fun showOptionsMenu() {
+    val options = arrayOf("Добавить в контакты", "Удалить", "Удалить все")
 
-        val backgroundDrawable = GradientDrawable().apply {
-            setColor(Color.BLACK)
-            setStroke(4, Color.GRAY)
-            cornerRadius = 16f
-        }
+    val backgroundDrawable = GradientDrawable().apply {
+        setColor(Color.BLACK)
+        setStroke(4, Color.GRAY)
+        cornerRadius = 16f
+    }
 
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = backgroundDrawable
-            setPadding(24, 24, 24, 24)
-        }
+    val layout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = backgroundDrawable
+        setPadding(24, 24, 24, 24)
+    }
 
-        val views = options.mapIndexed { index, label ->
-            TextView(this).apply {
-                text = label
-                textSize = 18f
-                setTextColor(Color.WHITE)
-                setPadding(16, 16, 16, 16)
-                isFocusable = true
-                isFocusableInTouchMode = true
-                setBackgroundResource(android.R.drawable.list_selector_background)
+    val views = options.mapIndexed { index, label ->
+        TextView(this).apply {
+            text = label
+            textSize = 18f
+            setTextColor(Color.WHITE)
+            setPadding(16, 16, 16, 16)
+            isFocusable = true
+            isFocusableInTouchMode = true
+            setBackgroundResource(android.R.drawable.list_selector_background)
 
-                setOnFocusChangeListener { v, hasFocus ->
-                    v.setBackgroundColor(if (hasFocus) 0xFFFFA500.toInt() else Color.TRANSPARENT)
-                }
+            setOnFocusChangeListener { v, hasFocus ->
+                v.setBackgroundColor(if (hasFocus) 0xFFFFA500.toInt() else Color.TRANSPARENT)
+            }
 
-                setOnClickListener {
-                    when (index) {
-                        0 -> deleteSelectedCall()
-                        1 -> confirmDeleteAllCalls()
-                    }
+            setOnClickListener {
+                when (index) {
+                    0 -> addNumberToContacts()
+                    1 -> deleteSelectedCall()
+                    2 -> confirmDeleteAllCalls()
                 }
             }
         }
+    }
 
-        // Получаем адаптер из ListView и проверяем количество элементов
-        val adapter = callList.adapter
-        val itemCount = adapter?.count ?: 0
+    val adapter = callList.adapter
+    val itemCount = adapter?.count ?: 0
 
-        // Блокируем кнопки, если нет звонков
-        if (itemCount == 0) {
+    // Проверяем текущий номер
+    var numberExistsInContacts = false
+    if (itemCount > 0) {
+        val item = adapter.getItem(selectedContactIndex) as? MutableMap<String, Any>
+        val number = item?.get("number") as? String
+        if (number != null) {
+            numberExistsInContacts = getContactName(number) != null
+        }
+    }
+
+    // Делаем пункты неактивными
+    if (itemCount == 0) {
+        // Если звонков нет — блокируем все пункты
+        views.forEach {
+            it.isEnabled = false
+            it.setTextColor(Color.GRAY)
+        }
+    } else {
+        // Если номер уже есть в контактах — блокируем "Добавить в контакты"
+        if (numberExistsInContacts) {
             views[0].isEnabled = false
-            views[1].isEnabled = false
             views[0].setTextColor(Color.GRAY)
-            views[1].setTextColor(Color.GRAY)
         }
+    }
 
+    views.forEach { layout.addView(it) }
 
-        views.forEach { layout.addView(it) }
+    optionsDialog = AlertDialog.Builder(this, R.style.DarkDialog)
+        .setView(layout)
+        .create()
 
-        optionsDialog = AlertDialog.Builder(this, R.style.DarkDialog)
-            .setView(layout)
-            .create()
+    optionsDialog?.setOnShowListener {
+        val focusView = views.firstOrNull { it.isEnabled } ?: views.firstOrNull()
+        focusView?.requestFocus()
+    }
 
-        optionsDialog?.setOnShowListener {
-            val focusView = views.firstOrNull { it.isEnabled } ?: views.firstOrNull()
-            focusView?.requestFocus()
+    optionsDialog?.show()
+}
+
+    private fun addNumberToContacts() {
+        val item = callList.adapter.getItem(selectedContactIndex) as? MutableMap<String, Any>
+        val number = item?.get("number") as? String
+        if (number != null) {
+            val intent = Intent(Intent.ACTION_INSERT).apply {
+                type = ContactsContract.Contacts.CONTENT_TYPE
+                putExtra(ContactsContract.Intents.Insert.PHONE, number)
+            }
+            startActivity(intent)
+        } else {
+            Toast.makeText(this, "Номер не найден", Toast.LENGTH_SHORT).show()
         }
-
-
-        optionsDialog?.show()
+        optionsDialog?.dismiss()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
