@@ -55,6 +55,8 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val retryHintHandler = Handler(Looper.getMainLooper())
     private val screenOffHandler = Handler(Looper.getMainLooper())
+    private var isScreenOffBySystem = false
+
 
     private val LONG_PRESS_THRESHOLD = 1000L
     private val autoLockTimeout = 30_000L
@@ -237,11 +239,12 @@ class MainActivity : Activity() {
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onResume() {
         super.onResume()
+
         isLeavingToSubActivity = false
         wasUnlockedFromLockScreen = false
         lastResumeTime = System.currentTimeMillis()
+
         requestMediaControllerUpdate()
-        resetAutoLockTimer()
         updateTrackInfo()
         updateTime()
 
@@ -252,20 +255,16 @@ class MainActivity : Activity() {
         val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
         telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS)
 
-        // Регистрируем MediaUpdateReceiver
         mediaUpdateReceiver = MediaUpdateReceiver(trackTitle, trackArtist)
         val filter = IntentFilter("com.example.myapplication.MEDIA_CONTROLLER_UPDATED")
         registerReceiver(mediaUpdateReceiver, filter)
 
-        // Регистрируем Receiver для домашней кнопки (система)
         homePressedReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == Intent.ACTION_CLOSE_SYSTEM_DIALOGS) {
                     val reason = intent.getStringExtra("reason")
                     if (reason == "homekey") {
-                        // Отключаем экран при нажатии HOME
                         lockScreenUsingDevicePolicy()
-                        // Блокируем клавиатуру только после отключения экрана
                         if (!isKeypadLocked) {
                             isKeypadLocked = true
                             centerPressed = false
@@ -278,8 +277,20 @@ class MainActivity : Activity() {
         registerReceiver(homePressedReceiver, IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS).apply {
             addCategory(Intent.CATEGORY_DEFAULT)
         })
-    }
 
+        // После возврата с отключённого экрана — заблокировать
+        if (isScreenOffBySystem) {
+            if (!isKeypadLocked) {
+                isKeypadLocked = true
+                centerPressed = false
+                showLockUI("Нажмите OK для разблокировки")
+            }
+            isScreenOffBySystem = false
+        }
+
+        hideSystemUI()
+        resetAutoLockTimer()
+    }
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
@@ -288,23 +299,39 @@ class MainActivity : Activity() {
 
     override fun onPause() {
         super.onPause()
-        screenOffHandler.removeCallbacks(screenOffRunnable)
 
+        // Проверяем, действительно ли экран был выключен системой
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!powerManager.isInteractive) {
+            // Экран был выключен системой
+            isScreenOffBySystem = true
+        } else {
+            isScreenOffBySystem = false
+        }
+
+        screenOffHandler.removeCallbacks(screenOffRunnable)
         timeHandler.removeCallbacks(timeRunnable)
-        unregisterReceiver(mediaUpdateReceiver)  // Отписка от MediaUpdateReceiver
+
+        try {
+            unregisterReceiver(mediaUpdateReceiver)
+        } catch (e: Exception) {}
 
         mediaController?.unregisterCallback(mediaCallback)
 
-        unregisterReceiver(batteryReceiver)
+        try {
+            unregisterReceiver(batteryReceiver)
+        } catch (e: Exception) {}
+
         val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
         telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
 
         homePressedReceiver?.let {
-            unregisterReceiver(it)
+            try {
+                unregisterReceiver(it)
+            } catch (e: Exception) {}
             homePressedReceiver = null
         }
     }
-
 
     private fun resetAutoLockTimer() {
         autoLockHandler.removeCallbacks(autoLockRunnable)
