@@ -397,14 +397,13 @@ class MainActivity : Activity() {
                     true
                 }
                 KeyEvent.KEYCODE_HOME -> {
-                    if (isKeypadLocked) {
-                        lockScreenUsingDevicePolicy()
-                    } else {
-                        isKeypadLocked = true
-                        centerPressed = false
-                        showLockUI("Нажмите OK для разблокировки")
-                    }
-                    return true
+                    lockScreenUsingDevicePolicy()
+                    true
+                }
+                KeyEvent.KEYCODE_BACK,
+                KeyEvent.KEYCODE_CALL -> {
+                    // Игнорируем BACK и CALL при блокировке
+                    true
                 }
                 else -> true
             }
