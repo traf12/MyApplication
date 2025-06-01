@@ -50,6 +50,7 @@ class MenuActivity : Activity() {
         )
 
         buttons.forEachIndexed { index, button ->
+
             button.background = getDrawable(R.drawable.button_selector)
 
             button.isFocusable = true
@@ -78,8 +79,6 @@ class MenuActivity : Activity() {
                     selectedIndex = index
                     updateHeader(index)
                     loadIcon(index)
-                    // ✅ Накладываем затемнение
-                    button.setColorFilter(0x88000000.toInt()) // прозрачный чёрный
                 } else {
                     button.clearColorFilter()
                 }
@@ -135,7 +134,15 @@ class MenuActivity : Activity() {
         }, 100)
     }
 
-
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        return when (keyCode) {
+            KeyEvent.KEYCODE_SOFT_LEFT, KeyEvent.KEYCODE_MENU -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+            else -> super.onKeyDown(keyCode, event)
+        }
+    }
 
     private fun updateHeader(index: Int) {
         val intentUri = prefs.getString("intent_$index", null)

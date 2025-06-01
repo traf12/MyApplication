@@ -10,10 +10,10 @@
         </shape>
     </item>
 
-    <!-- Состояние по умолчанию -->
+    <!-- Обычное состояние — серый фон -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="@android:color/transparent"/>
+            <solid android:color="#444444"/> <!-- Серый фон -->
             <corners android:radius="24dp"/>
         </shape>
     </item>

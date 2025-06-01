@@ -34,7 +34,7 @@
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:background="@drawable/default_button_background" />
+            />
 
         <ImageButton
             android:id="@+id/appButton2"
@@ -43,7 +43,7 @@
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:background="@drawable/default_button_background" />
+            />
 
         <ImageButton
             android:id="@+id/appButton3"
@@ -52,7 +52,7 @@
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:background="@drawable/default_button_background" />
+            />
 
         <ImageButton
             android:id="@+id/appButton4"
@@ -61,7 +61,7 @@
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:background="@drawable/default_button_background" />
+            />
 
         <ImageButton
             android:id="@+id/appButton5"
@@ -70,7 +70,7 @@
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:background="@drawable/default_button_background" />
+            />
 
         <ImageButton
             android:id="@+id/appButton6"
@@ -79,7 +79,7 @@
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:background="@drawable/default_button_background" />
+            />
 
         <ImageButton
             android:id="@+id/appButton7"
@@ -88,7 +88,7 @@
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:background="@drawable/default_button_background" />
+            />
 
         <ImageButton
             android:id="@+id/appButton8"
@@ -97,7 +97,7 @@
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:background="@drawable/default_button_background" />
+            />
 
         <ImageButton
             android:id="@+id/appButton9"
@@ -106,7 +106,7 @@
             android:layout_columnWeight="1"
             android:layout_rowWeight="1"
             android:layout_margin="2dp"
-            android:background="@drawable/default_button_background" />
+            />
 
     </GridLayout>
 </LinearLayout>

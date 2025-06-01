@@ -55,11 +55,9 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val retryHintHandler = Handler(Looper.getMainLooper())
     private val screenOffHandler = Handler(Looper.getMainLooper())
-    private var isScreenOffBySystem = false
 
 
     private val LONG_PRESS_THRESHOLD = 1000L
-    private val autoLockTimeout = 30_000L
     private val screenOffTimeout = 10_000L
 
     private var isKeypadLocked = true
@@ -67,6 +65,9 @@ class MainActivity : Activity() {
     private var isKey7Handled = false
     private var isLeavingToSubActivity = false
     private var wasUnlockedFromLockScreen = false
+
+    private var secondUnlockKeyCode: Int = KeyEvent.KEYCODE_STAR  // по умолчанию *
+
 
     private val timeHandler = Handler(Looper.getMainLooper())
     private val timeRunnable = object : Runnable {
@@ -80,7 +81,18 @@ class MainActivity : Activity() {
     }
 
 
+    private fun loadSecondUnlockKey() {
+        val prefs = getSharedPreferences("lockscreen_prefs", MODE_PRIVATE)
+        val key   = prefs.getString("unlock_key_2", "*") ?: "*"
 
+        secondUnlockKeyCode = when (key) {
+            "*"  -> KeyEvent.KEYCODE_STAR
+            "#"  -> KeyEvent.KEYCODE_POUND
+            "0"  -> KeyEvent.KEYCODE_0
+            "Назад" -> KeyEvent.KEYCODE_BACK        // BACK
+            else -> KeyEvent.KEYCODE_STAR           // fallback
+        }
+    }
 
     private val mediaCallback = object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?) {
@@ -105,16 +117,12 @@ class MainActivity : Activity() {
         }
     }
 
-
-    private val autoLockHandler = Handler(Looper.getMainLooper())
-    private val autoLockRunnable = Runnable {
-        if (!isKeypadLocked) {
-            isKeypadLocked = true
-            centerPressed = false
-            showLockUI("Нажмите OK для разблокировки")
+    private fun resetScreenOffTimer() {             // ⬅️   новый метод
+        screenOffHandler.removeCallbacks(screenOffRunnable)
+        if (isKeypadLocked) {
+            screenOffHandler.postDelayed(screenOffRunnable, screenOffTimeout)
         }
     }
-
 
     private val screenOffRunnable = Runnable {
         if (isKeypadLocked) {
@@ -193,9 +201,10 @@ class MainActivity : Activity() {
         updateTrackInfo()
         updateTime()
 
+        loadSecondUnlockKey()
+
         hideSystemUI()
         showLockUI("Нажмите OK для разблокировки")
-        resetAutoLockTimer()
 
 
     }
@@ -233,8 +242,9 @@ class MainActivity : Activity() {
 
     override fun onUserInteraction() {
         super.onUserInteraction()
-        resetAutoLockTimer()
+        resetScreenOffTimer()        // сбрасываем 10-с таймер
     }
+
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onResume() {
@@ -278,18 +288,10 @@ class MainActivity : Activity() {
             addCategory(Intent.CATEGORY_DEFAULT)
         })
 
-        // После возврата с отключённого экрана — заблокировать
-        if (isScreenOffBySystem) {
-            if (!isKeypadLocked) {
-                isKeypadLocked = true
-                centerPressed = false
-                showLockUI("Нажмите OK для разблокировки")
-            }
-            isScreenOffBySystem = false
-        }
+        loadSecondUnlockKey()
 
         hideSystemUI()
-        resetAutoLockTimer()
+        resetScreenOffTimer()
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -302,11 +304,11 @@ class MainActivity : Activity() {
 
         // Проверяем, действительно ли экран был выключен системой
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        if (!powerManager.isInteractive) {
-            // Экран был выключен системой
-            isScreenOffBySystem = true
-        } else {
-            isScreenOffBySystem = false
+        if (!powerManager.isInteractive) {          // система выключает экран
+            isKeypadLocked = true
+            centerPressed = false
+            showLockUI("Нажмите OK для разблокировки")
+
         }
 
         screenOffHandler.removeCallbacks(screenOffRunnable)
@@ -333,84 +335,74 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun resetAutoLockTimer() {
-        autoLockHandler.removeCallbacks(autoLockRunnable)
-        autoLockHandler.postDelayed(autoLockRunnable, autoLockTimeout)
 
-        screenOffHandler.removeCallbacks(screenOffRunnable)
 
-        if (isKeypadLocked) {
-            screenOffHandler.postDelayed(screenOffRunnable, screenOffTimeout)
-        }
+    private fun keyCodeToHint(code: Int): String = when (code) {
+        KeyEvent.KEYCODE_STAR  -> "*"
+        KeyEvent.KEYCODE_POUND -> "#"
+        KeyEvent.KEYCODE_0     -> "0"
+        KeyEvent.KEYCODE_BACK      -> "Назад"
+        else                   -> "?"
     }
+
 
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val isMusicPlaying = mediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
 
+        // --- блокировка по HOME/POWER/ENDCALL без изменений ---
         if (!isKeypadLocked && (keyCode == KeyEvent.KEYCODE_HOME ||
                     keyCode == KeyEvent.KEYCODE_POWER ||
                     keyCode == KeyEvent.KEYCODE_ENDCALL)) {
-            // При нажатии HOME, блокируем экран
             isKeypadLocked = true
             centerPressed = false
             showLockUI("Нажмите OK для разблокировки")
             lockScreenUsingDevicePolicy()
+            resetScreenOffTimer()
             return true
         }
 
+        // ----------- ЛОГИКА, КОГДА КЛАВИШИ ЗАБЛОКИРОВАНЫ -----------
         if (isKeypadLocked) {
             return when (keyCode) {
+
+                /* 1-я кнопка – OK (DPAD_CENTER) */
                 KeyEvent.KEYCODE_DPAD_CENTER -> {
                     centerPressed = true
-                    showLockUI("Нажмите *")
+                    showLockUI("Нажмите ${keyCodeToHint(secondUnlockKeyCode)}")
                     retryHintHandler.removeCallbacks(retryHintRunnable)
-                    retryHintHandler.postDelayed(retryHintRunnable, 5000)
+                    retryHintHandler.postDelayed(retryHintRunnable, 5_000)
                     true
                 }
-                KeyEvent.KEYCODE_STAR -> {
+
+                /* 2-я кнопка – выбранная в настройках */
+                secondUnlockKeyCode -> {
                     if (centerPressed) {
                         isKeypadLocked = false
                         centerPressed = false
                         hideLockUI()
                         retryHintHandler.removeCallbacks(retryHintRunnable)
-                        resetAutoLockTimer()
                     } else {
                         showLockUI("Нажмите OK для разблокировки")
                     }
                     true
                 }
-                KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    if (isMusicPlaying) mediaController?.transportControls?.skipToPrevious()
-                    true
-                }
-                KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    if (isMusicPlaying) mediaController?.transportControls?.skipToNext()
-                    true
-                }
-                KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (isMusicPlaying) audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
-                    true
-                }
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (isMusicPlaying) audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
-                    true
-                }
-                KeyEvent.KEYCODE_HOME -> {
-                    lockScreenUsingDevicePolicy()
-                    true
-                }
-                KeyEvent.KEYCODE_BACK,
-                KeyEvent.KEYCODE_CALL -> {
-                    // Игнорируем BACK и CALL при блокировке
-                    true
-                }
+
+                /* управление плеером — без изменений */
+                KeyEvent.KEYCODE_DPAD_LEFT  -> { if (isMusicPlaying) mediaController?.transportControls?.skipToPrevious(); true }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> { if (isMusicPlaying) mediaController?.transportControls?.skipToNext();    true }
+                KeyEvent.KEYCODE_DPAD_UP    -> { if (isMusicPlaying) audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI); true }
+                KeyEvent.KEYCODE_DPAD_DOWN  -> { if (isMusicPlaying) audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI); true }
+
+                /* системные / игнорируемые */
+                KeyEvent.KEYCODE_HOME -> { lockScreenUsingDevicePolicy(); true }
+                KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_CALL -> true
+
                 else -> true
             }
         }
 
-        resetAutoLockTimer()
-
+        // --------------- прочие действия (как было) ---------------
         return when (keyCode) {
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SOFT_LEFT -> {
                 isLeavingToSubActivity = true
